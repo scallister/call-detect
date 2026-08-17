@@ -58,8 +58,8 @@ func formatTimes(u consentstore.Usage) string {
 	return strings.Join(parts, " ")
 }
 
-// WriteAudio prints live WASAPI sessions and the confirmed snapshot.
-func WriteAudio(w io.Writer, audio detect.Audio, snap state.Snapshot) error {
+// WriteAudio prints live WASAPI sessions.
+func WriteAudio(w io.Writer, audio detect.Audio) error {
 	if _, err := fmt.Fprintln(w, "\nActive audio sessions"); err != nil {
 		return err
 	}
@@ -70,9 +70,23 @@ func WriteAudio(w io.Writer, audio detect.Audio, snap state.Snapshot) error {
 	if err := writeNames(w, "  capture", audio.Capture); err != nil {
 		return err
 	}
-	if err := writeNames(w, "  render ", audio.Render); err != nil {
+	return writeNames(w, "  render ", audio.Render)
+}
+
+// WriteCamera prints processes currently streaming a camera.
+func WriteCamera(w io.Writer, cam detect.Camera) error {
+	if _, err := fmt.Fprintln(w, "\nStreaming cameras"); err != nil {
 		return err
 	}
+	if cam.Err != nil {
+		_, err := fmt.Fprintf(w, "  (unavailable: %v)\n", cam.Err)
+		return err
+	}
+	return writeNames(w, "  processes", cam.Streaming)
+}
+
+// WriteResult prints the confirmed snapshot.
+func WriteResult(w io.Writer, snap state.Snapshot) error {
 	_, err := fmt.Fprintf(w, "\nResult  busy=%v  microphone=%v  webcam=%v  sources=%s\n",
 		snap.Busy, snap.Microphone, snap.Webcam, formatSources(snap.Sources))
 	return err

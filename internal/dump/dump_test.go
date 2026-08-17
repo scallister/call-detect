@@ -31,7 +31,30 @@ func TestWrite(t *testing.T) {
 func TestWriteAudio(t *testing.T) {
 	t.Parallel()
 	var b strings.Builder
-	if err := WriteAudio(&b, detect.Audio{Capture: []string{"Discord.exe"}}, state.Snapshot{Busy: true, Microphone: true, Sources: []string{"Discord.exe"}}); err != nil {
+	if err := WriteAudio(&b, detect.Audio{Capture: []string{"Discord.exe"}}); err != nil {
+		t.Fatal(err)
+	}
+	got := b.String()
+	if !strings.Contains(got, "Discord.exe") {
+		t.Fatalf("%s", got)
+	}
+}
+
+func TestWriteCamera(t *testing.T) {
+	t.Parallel()
+	var b strings.Builder
+	if err := WriteCamera(&b, detect.Camera{Streaming: []string{"chrome.exe"}}); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(b.String(), "chrome.exe") {
+		t.Fatalf("%s", b.String())
+	}
+}
+
+func TestWriteResult(t *testing.T) {
+	t.Parallel()
+	var b strings.Builder
+	if err := WriteResult(&b, state.Snapshot{Busy: true, Microphone: true, Sources: []string{"Discord.exe"}}); err != nil {
 		t.Fatal(err)
 	}
 	got := b.String()

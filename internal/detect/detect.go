@@ -1,4 +1,4 @@
-// Package detect combines ConsentStore records with live audio sessions.
+// Package detect combines ConsentStore records with live audio and camera activity.
 package detect
 
 import (
@@ -11,38 +11,39 @@ import (
 	"github.com/scallister/call-detect/internal/state"
 )
 
-// Audio is a live WASAPI session snapshot. Err set means the enumerator failed
-// and Confirm should fall back to ConsentStore only.
+// Audio is a live WASAPI session snapshot. Err set means the enumerator failed.
 type Audio struct {
 	Capture []string
 	Render  []string
 	Err     error
 }
 
-// Confirm builds a snapshot. Apps that only appear in ConsentStore (common
-// after Discord or a browser has held a device) are ignored unless they also
-// have an active capture session. If audio enumeration failed, ConsentStore
-// is used alone.
-func Confirm(mic, cam []consentstore.Usage, audio Audio, now time.Time) state.Snapshot {
-	if audio.Err != nil {
+// Camera is a live camera-streaming snapshot from the Windows sensor activity
+// monitor. Err set means the monitor failed and Confirm should fall back.
+type Camera struct {
+	Streaming []string
+	Err       error
+}
+
+// Confirm builds a snapshot.
+//
+// Microphone: ConsentStore in-use apps that also have an active WASAPI capture
+// session. If audio enumeration failed, ConsentStore is used alone.
+//
+// Webcam: processes currently streaming a camera (sensor activity monitor).
+// That is independent of audio, so a browser preview with no microphone still
+// counts. If the camera monitor failed, webcam falls back to ConsentStore
+// intersected with a capture or render session (or ConsentStore alone if audio
+// also failed).
+//
+// If both live sources failed, Confirm uses ConsentStore only.
+func Confirm(mic, cam []consentstore.Usage, audio Audio, camera Camera, now time.Time) state.Snapshot {
+	if audio.Err != nil && camera.Err != nil {
 		return state.FromUsages(mic, cam, now)
 	}
-	capture := indexApps(audio.Capture)
-	render := indexApps(audio.Render)
 
-	var micApps, camApps []string
-	for _, name := range consentstore.InUseApps(mic) {
-		if capture[normApp(name)] {
-			micApps = append(micApps, name)
-		}
-	}
-	for _, name := range consentstore.InUseApps(cam) {
-		key := normApp(name)
-		if capture[key] || render[key] {
-			camApps = append(camApps, name)
-		}
-	}
-
+	micApps := confirmMic(mic, audio)
+	camApps := confirmCam(cam, audio, camera)
 	sources := unique(append(append([]string{}, micApps...), camApps...))
 	micOn := len(micApps) > 0
 	camOn := len(camApps) > 0
@@ -53,6 +54,39 @@ func Confirm(mic, cam []consentstore.Usage, audio Audio, now time.Time) state.Sn
 		Sources:    sources,
 		UpdatedAt:  now.UTC(),
 	}
+}
+
+func confirmMic(mic []consentstore.Usage, audio Audio) []string {
+	if audio.Err != nil {
+		return consentstore.InUseApps(mic)
+	}
+	capture := indexApps(audio.Capture)
+	var apps []string
+	for _, name := range consentstore.InUseApps(mic) {
+		if capture[normApp(name)] {
+			apps = append(apps, name)
+		}
+	}
+	return apps
+}
+
+func confirmCam(cam []consentstore.Usage, audio Audio, camera Camera) []string {
+	if camera.Err == nil {
+		return unique(append([]string{}, camera.Streaming...))
+	}
+	if audio.Err != nil {
+		return consentstore.InUseApps(cam)
+	}
+	capture := indexApps(audio.Capture)
+	render := indexApps(audio.Render)
+	var apps []string
+	for _, name := range consentstore.InUseApps(cam) {
+		key := normApp(name)
+		if capture[key] || render[key] {
+			apps = append(apps, name)
+		}
+	}
+	return apps
 }
 
 func normApp(name string) string {

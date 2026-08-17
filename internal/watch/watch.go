@@ -19,12 +19,22 @@ type AudioSource interface {
 	Sessions() detect.Audio
 }
 
-var errNoAudio = fmt.Errorf("audio source not configured")
+// CameraSource lists processes currently streaming a camera. Optional; if nil,
+// webcam confirmation falls back to ConsentStore and audio sessions.
+type CameraSource interface {
+	Streaming() detect.Camera
+}
+
+var (
+	errNoAudio  = fmt.Errorf("audio source not configured")
+	errNoCamera = fmt.Errorf("camera source not configured")
+)
 
 // Options control the poll loop.
 type Options struct {
 	Store      consentstore.Store
 	Audio      AudioSource
+	Camera     CameraSource
 	Debounce   time.Duration
 	Poll       time.Duration
 	StatusPath string
@@ -53,6 +63,7 @@ func Run(ctx context.Context, opt Options) error {
 	tick := time.NewTicker(opt.Poll)
 	defer tick.Stop()
 	loggedAudioErr := false
+	loggedCameraErr := false
 
 	step := func(now time.Time) {
 		micEnt, err := opt.Store.List(consentstore.CapabilityMicrophone)
@@ -75,7 +86,15 @@ func Run(ctx context.Context, opt Options) error {
 				loggedAudioErr = true
 			}
 		}
-		raw := detect.Confirm(mic, cam, audio, now)
+		camera := detect.Camera{Err: errNoCamera}
+		if opt.Camera != nil {
+			camera = opt.Camera.Streaming()
+			if camera.Err != nil && !loggedCameraErr {
+				logger.Printf("camera monitor: %v (confirming webcam via audio sessions)", camera.Err)
+				loggedCameraErr = true
+			}
+		}
+		raw := detect.Confirm(mic, cam, audio, camera, now)
 		res := deb.Observe(raw, now)
 		if !res.Changed {
 			return

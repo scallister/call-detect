@@ -2,7 +2,7 @@
 
 A small Windows background program that notices when an app is using the **microphone** or **webcam**, shows that in the notification area, and can POST a JSON webhook when the state changes.
 
-It does not talk to Discord, Zoom, or any other app by name. It reads Windows privacy records and confirms them against live audio capture sessions, so it works with current and future programs.
+It does not talk to Discord, Zoom, or any other app by name. It reads Windows privacy records, live audio capture sessions, and camera streaming activity, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
 
 ## What it reports
 
@@ -20,7 +20,7 @@ State is debounced for about two seconds so a brief device grab does not flicker
 
 ## Privacy
 
-call-detect only **reads** Windows ConsentStore timestamps and audio session metadata (process names). It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default.
+call-detect only **reads** Windows ConsentStore timestamps, audio session metadata, and camera sensor-activity process names. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default.
 
 ## Install
 
@@ -45,7 +45,7 @@ Removes the logon entry. Files stay in `%LOCALAPPDATA%\call-detect\` until you d
 |------|---------|
 | `--install` | Install and start at logon |
 | `--uninstall` | Remove logon autostart |
-| `--dump` | Print ConsentStore records, live audio sessions, and the confirmed result |
+| `--dump` | Print ConsentStore records, live audio sessions, streaming cameras, and the confirmed result |
 | `--console` | Also write logs to a console window |
 | `--webhook-url` | Override the webhook destination |
 | `--config` | Path to `config.yaml` |
@@ -73,11 +73,11 @@ The latest snapshot is also written to `%LOCALAPPDATA%\call-detect\status.json`.
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 
-Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, and **Quit**. The webhook dialog writes `config.yaml` and applies immediately. The icon updates on its own when state changes.
+Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, and **Quit**. The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes.
 
 ## Webhook
 
-On each debounced change to `busy`, `microphone`, or `webcam`, call-detect POSTs `Content-Type: application/json`:
+On each debounced change to `busy`, `microphone`, or `webcam`, call-detect POSTs `Content-Type: application/json`. **Set webhook URL...** shows this same example next to the URL field:
 
 ```json
 {
@@ -149,14 +149,14 @@ go test ./...
 
 ## How detection works
 
-Windows stores last-used times under:
+**Microphone.** Windows stores last-used times under:
 
 `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone`
 
-and the same path with `webcam`. Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. Those keys stay “in use” (`LastUsedTimeStop` is zero) for as long as an app holds the device — including after you leave a Discord or browser call.
+Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. Those keys stay “in use” (`LastUsedTimeStop` is zero) after many apps leave a call. call-detect treats the microphone as in use only when ConsentStore says so **and** that same app has an active WASAPI **capture** session. Playback-only apps (music, videos) never match.
 
-call-detect treats a device as in use only when ConsentStore says so **and** that same app has an active WASAPI session (capture for the microphone; capture or render for the webcam). Playback-only apps never match a microphone record.
+**Webcam.** A video-only page (for example a browser camera test) often has no audio session at all. Webcam state comes from the Windows camera sensor activity monitor: processes that are actually streaming a camera. Idle Discord leftover ConsentStore records do not count.
 
-If audio session enumeration fails, it falls back to ConsentStore alone.
+If the camera monitor cannot start, webcam falls back to ConsentStore plus a capture or render session. If both live sources fail, call-detect uses ConsentStore alone.
 
 The program must run as the signed-in user (not as a Windows service under Local System) so it can read that user’s keys.
