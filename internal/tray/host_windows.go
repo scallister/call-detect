@@ -11,6 +11,7 @@ import (
 
 	"golang.org/x/sys/windows"
 
+	"github.com/scallister/call-detect/internal/project"
 	"github.com/scallister/call-detect/internal/state"
 )
 
@@ -21,6 +22,7 @@ const (
 	idInstall   = 1002
 	idUninstall = 1003
 	idWebhook   = 1004
+	idGitHub    = 1005
 
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
@@ -70,6 +72,7 @@ var (
 	procCreateIconFromResource = user32.NewProc("CreateIconFromResourceEx")
 	procGetModuleHandleW       = kernel32.NewProc("GetModuleHandleW")
 	procShellNotifyIconW       = shell32.NewProc("Shell_NotifyIconW")
+	procShellExecuteW          = shell32.NewProc("ShellExecuteW")
 	procMessageBoxW            = user32.NewProc("MessageBoxW")
 )
 
@@ -345,6 +348,7 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 		}
 	}
 	_, _, _ = procAppendMenuW.Call(menu, mfSeparator, 0, 0)
+	appendItem(menu, idGitHub, "GitHub...")
 	appendItem(menu, idQuit, "Quit")
 
 	var pt point
@@ -387,6 +391,10 @@ func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
 			return
 		}
 		alert(hwnd, "Removed logon startup. The tray icon will keep running until you choose Quit.", false)
+	case idGitHub:
+		if err := openURL(project.RepoURL); err != nil {
+			alert(hwnd, err.Error(), true)
+		}
 	case idWebhook:
 		if actions.SetWebhookURL == nil {
 			return
@@ -409,6 +417,27 @@ func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
 		}
 		alert(hwnd, "Webhook URL saved. Changes apply immediately.", false)
 	}
+}
+
+func openURL(url string) error {
+	const swShowNormal = 1
+	op, err := windows.UTF16PtrFromString("open")
+	if err != nil {
+		return err
+	}
+	file, err := windows.UTF16PtrFromString(url)
+	if err != nil {
+		return err
+	}
+	r, _, callErr := procShellExecuteW.Call(0, uintptr(unsafe.Pointer(op)), uintptr(unsafe.Pointer(file)), 0, 0, swShowNormal)
+	// ShellExecute returns a value > 32 on success.
+	if r <= 32 {
+		if callErr != nil {
+			return fmt.Errorf("open %s: %w", url, callErr)
+		}
+		return fmt.Errorf("open %s: %d", url, r)
+	}
+	return nil
 }
 
 func alert(owner windows.HWND, text string, isErr bool) {
