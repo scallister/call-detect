@@ -73,7 +73,7 @@ The latest snapshot is also written to `%LOCALAPPDATA%\call-detect\status.json`.
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 
-Right-click for microphone / webcam / sources and **Quit**. The icon updates on its own when state changes.
+Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, and **Quit**. The webhook dialog writes `config.yaml` and applies immediately. The icon updates on its own when state changes.
 
 ## Webhook
 

@@ -15,9 +15,12 @@ import (
 )
 
 const (
-	wmTray   = 0x0400 + 1
-	wmUpdate = 0x0400 + 2
-	idQuit   = 1001
+	wmTray      = 0x0400 + 1
+	wmUpdate    = 0x0400 + 2
+	idQuit      = 1001
+	idInstall   = 1002
+	idUninstall = 1003
+	idWebhook   = 1004
 
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
@@ -40,6 +43,7 @@ const (
 	tpmRightBtn    = 0x0002
 	tpmBottomAlign = 0x0020
 	tpmLeftAlign   = 0x0000
+	tpmReturnCmd   = 0x0100
 )
 
 var (
@@ -66,6 +70,7 @@ var (
 	procCreateIconFromResource = user32.NewProc("CreateIconFromResourceEx")
 	procGetModuleHandleW       = kernel32.NewProc("GetModuleHandleW")
 	procShellNotifyIconW       = shell32.NewProc("Shell_NotifyIconW")
+	procMessageBoxW            = user32.NewProc("MessageBoxW")
 )
 
 type notifyIconData struct {
@@ -122,10 +127,17 @@ type hostImpl struct {
 	snap     state.Snapshot
 	done     chan struct{}
 	once     sync.Once
+	actions  Actions
 }
 
 func newHostImpl() hostImpl {
 	return hostImpl{snap: SnapshotIdle(), done: make(chan struct{})}
+}
+
+func (h *hostImpl) setActions(a Actions) {
+	h.mu.Lock()
+	h.actions = a
+	h.mu.Unlock()
 }
 
 func (h *hostImpl) update(s state.Snapshot) {
@@ -252,9 +264,7 @@ func (h *hostImpl) wndProc(hwnd windows.HWND, msg uint32, wParam, lParam uintptr
 		}
 		return 0
 	case wmCommand:
-		if uint16(wParam) == idQuit {
-			_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
-		}
+		h.handleCommand(uint16(wParam), hwnd)
 		return 0
 	case wmDestroy:
 		_, _, _ = procPostQuitMessage.Call(0)
@@ -319,15 +329,99 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 	} else {
 		appendGray(menu, "Sources: (none)")
 	}
+	h.mu.Lock()
+	actions := h.actions
+	h.mu.Unlock()
+	if actions.hasSetup() {
+		_, _, _ = procAppendMenuW.Call(menu, mfSeparator, 0, 0)
+		if actions.Install != nil && (actions.AutostartOn == nil || !actions.AutostartOn()) {
+			appendItem(menu, idInstall, "Install (start at logon)")
+		}
+		if actions.Uninstall != nil && (actions.AutostartOn == nil || actions.AutostartOn()) {
+			appendItem(menu, idUninstall, "Uninstall (remove logon startup)")
+		}
+		if actions.SetWebhookURL != nil {
+			appendItem(menu, idWebhook, "Set webhook URL...")
+		}
+	}
 	_, _, _ = procAppendMenuW.Call(menu, mfSeparator, 0, 0)
-	quit, _ := windows.UTF16PtrFromString("Quit")
-	_, _, _ = procAppendMenuW.Call(menu, mfString, idQuit, uintptr(unsafe.Pointer(quit)))
+	appendItem(menu, idQuit, "Quit")
 
 	var pt point
 	_, _, _ = procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
 	_, _, _ = procSetForegroundWindow.Call(uintptr(hwnd))
-	_, _, _ = procTrackPopupMenu.Call(menu, tpmRightBtn|tpmBottomAlign|tpmLeftAlign, uintptr(pt.X), uintptr(pt.Y), 0, uintptr(hwnd), 0)
+	r, _, _ := procTrackPopupMenu.Call(menu, tpmRightBtn|tpmBottomAlign|tpmLeftAlign|tpmReturnCmd, uintptr(pt.X), uintptr(pt.Y), 0, uintptr(hwnd), 0)
 	_, _, _ = procPostMessageW.Call(uintptr(hwnd), 0, 0, 0)
+	if r != 0 {
+		h.handleCommand(uint16(r), hwnd)
+	}
+}
+
+func appendItem(menu uintptr, id uint16, text string) {
+	p, _ := windows.UTF16PtrFromString(text)
+	_, _, _ = procAppendMenuW.Call(menu, mfString, uintptr(id), uintptr(unsafe.Pointer(p)))
+}
+
+func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
+	h.mu.Lock()
+	actions := h.actions
+	h.mu.Unlock()
+	switch id {
+	case idQuit:
+		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
+	case idInstall:
+		if actions.Install == nil {
+			return
+		}
+		if err := actions.Install(); err != nil {
+			alert(hwnd, err.Error(), true)
+			return
+		}
+		alert(hwnd, "Installed. call-detect will start at logon.", false)
+	case idUninstall:
+		if actions.Uninstall == nil {
+			return
+		}
+		if err := actions.Uninstall(); err != nil {
+			alert(hwnd, err.Error(), true)
+			return
+		}
+		alert(hwnd, "Removed logon startup. The tray icon will keep running until you choose Quit.", false)
+	case idWebhook:
+		if actions.SetWebhookURL == nil {
+			return
+		}
+		cur := ""
+		if actions.WebhookURL != nil {
+			cur = actions.WebhookURL()
+		}
+		url, ok := promptText(hwnd, "Webhook URL", "Home Assistant webhook or other POST URL.\nLeave empty to disable.", cur)
+		if !ok {
+			return
+		}
+		if err := actions.SetWebhookURL(url); err != nil {
+			alert(hwnd, err.Error(), true)
+			return
+		}
+		if url == "" {
+			alert(hwnd, "Webhook disabled.", false)
+			return
+		}
+		alert(hwnd, "Webhook URL saved. Changes apply immediately.", false)
+	}
+}
+
+func alert(owner windows.HWND, text string, isErr bool) {
+	const mbOK = 0x00000000
+	const mbIconError = 0x00000010
+	const mbIconInfo = 0x00000040
+	flags := uintptr(mbOK | mbIconInfo)
+	if isErr {
+		flags = uintptr(mbOK | mbIconError)
+	}
+	title, _ := windows.UTF16PtrFromString("call-detect")
+	body, _ := windows.UTF16PtrFromString(text)
+	_, _, _ = procMessageBoxW.Call(uintptr(owner), uintptr(unsafe.Pointer(body)), uintptr(unsafe.Pointer(title)), flags)
 }
 
 func appendGray(menu uintptr, text string) {

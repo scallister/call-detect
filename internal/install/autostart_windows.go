@@ -23,6 +23,17 @@ func EnableAutostart(exe string) error {
 	return nil
 }
 
+// AutostartEnabled reports whether the HKCU Run entry exists.
+func AutostartEnabled() bool {
+	key, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.QUERY_VALUE)
+	if err != nil {
+		return false
+	}
+	defer key.Close()
+	_, _, err = key.GetStringValue(runValueName)
+	return err == nil
+}
+
 // DisableAutostart removes the HKCU Run entry.
 func DisableAutostart() error {
 	key, err := registry.OpenKey(registry.CURRENT_USER, runKeyPath, registry.SET_VALUE)

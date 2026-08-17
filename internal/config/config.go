@@ -4,6 +4,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -54,6 +55,29 @@ const SampleYAML = `# Optional webhook. When set, call-detect POSTs JSON wheneve
 #
 # webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"
 `
+
+// WriteWebhook writes path with webhook_url set (or commented out if empty).
+func WriteWebhook(path, url string) error {
+	url = strings.TrimSpace(url)
+	var b strings.Builder
+	b.WriteString(`# Optional webhook. When set, call-detect POSTs JSON whenever
+# busy, microphone, or webcam changes (after a short debounce).
+`)
+	if url == "" {
+		b.WriteString(`# webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"
+`)
+	} else {
+		enc, err := yaml.Marshal(map[string]string{"webhook_url": url})
+		if err != nil {
+			return err
+		}
+		b.Write(enc)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(b.String()), 0o644)
+}
 
 // WriteSample writes SampleYAML if path does not already exist.
 func WriteSample(path string) error {

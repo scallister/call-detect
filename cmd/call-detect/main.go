@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"github.com/scallister/call-detect/internal/appdir"
@@ -103,19 +104,42 @@ func run(args []string) int {
 	defer cancel()
 
 	host := tray.New()
+	hook := &webhook.Client{URL: cfg.WebhookURL}
+	host.SetActions(tray.Actions{
+		AutostartOn: install.AutostartEnabled,
+		Install: func() error {
+			_, err := install.Apply()
+			return err
+		},
+		Uninstall: install.DisableAutostart,
+		WebhookURL: func() string {
+			return hook.GetURL()
+		},
+		SetWebhookURL: func(url string) error {
+			url = strings.TrimSpace(url)
+			if err := config.WriteWebhook(cfgFile, url); err != nil {
+				return err
+			}
+			hook.SetURL(url)
+			if url == "" {
+				log.Print("webhook disabled")
+			} else {
+				log.Print("webhook enabled")
+			}
+			return nil
+		},
+	})
 	opt := watch.Options{
 		Store:      consentstore.Windows{},
 		Audio:      wasapi.Source{},
 		Debounce:   2 * time.Second,
 		Poll:       time.Second,
 		StatusPath: appdir.StatusPath(dir),
+		Webhook:    hook,
 		OnUpdate: func(s state.Snapshot, _ bool) {
 			host.Update(s)
 			log.Print(tray.Tooltip(s))
 		},
-	}
-	if cfg.WebhookURL != "" {
-		opt.Webhook = &webhook.Client{URL: cfg.WebhookURL}
 	}
 
 	host.Run(func() {
@@ -151,20 +175,8 @@ func cmdInstall() int {
 		fmt.Fprintln(os.Stderr, "install is only available on Windows")
 		return 1
 	}
-	paths, err := install.PrepareDir()
+	paths, err := install.Apply()
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	if err := install.CopyExecutable(paths.Exe); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	if err := install.WriteSampleConfig(paths.Config); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return 1
-	}
-	if err := install.EnableAutostart(paths.Exe); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
