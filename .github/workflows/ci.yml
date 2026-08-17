@@ -19,8 +19,16 @@ jobs:
           go-version: "1.26.6"
       - name: Test
         run: go test ./...
+      - name: Version
+        id: ver
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=dev" >> "$GITHUB_OUTPUT"
+          fi
       - name: Build Windows amd64
-        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w" -o call-detect.exe ./cmd/call-detect
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect.exe ./cmd/call-detect
       - uses: actions/upload-artifact@v4
         with:
           name: call-detect-windows-amd64
@@ -38,7 +46,7 @@ jobs:
         with:
           go-version: "1.26.6"
       - name: Build Windows amd64
-        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w" -o call-detect.exe ./cmd/call-detect
+        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${GITHUB_REF_NAME}" -o call-detect.exe ./cmd/call-detect
       - uses: softprops/action-gh-release@v2
         with:
           files: call-detect.exe

@@ -47,3 +47,8 @@ func StatusPath(dir string) string {
 func ExePath(dir string) string {
 	return filepath.Join(dir, "call-detect.exe")
 }
+
+// VersionPath is the installed release string inside Dir.
+func VersionPath(dir string) string {
+	return filepath.Join(dir, "version")
+}

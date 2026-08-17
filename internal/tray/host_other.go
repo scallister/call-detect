@@ -32,3 +32,9 @@ func (h *hostImpl) run(ready func()) {
 func (h *hostImpl) quit() {
 	h.once.Do(func() { close(h.done) })
 }
+
+// Confirm is only implemented on Windows.
+func Confirm(string, string) bool { return false }
+
+// Alert is only implemented on Windows.
+func Alert(string, bool) {}
