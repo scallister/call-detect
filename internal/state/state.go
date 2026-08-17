@@ -10,7 +10,7 @@ import (
 
 // Snapshot is the public status payload (JSON webhook and status.json).
 type Snapshot struct {
-	Busy       bool      `json:"busy"`
+	Busy       bool      `json:"call"`
 	Microphone bool      `json:"microphone"`
 	Webcam     bool      `json:"webcam"`
 	Sources    []string  `json:"sources"`
@@ -20,7 +20,7 @@ type Snapshot struct {
 // ExampleJSON is a sample snapshot in the same shape as the webhook POST body
 // and status.json. The tray webhook dialog shows this next to the URL field.
 const ExampleJSON = `{
-  "busy": true,
+  "call": true,
   "microphone": true,
   "webcam": false,
   "sources": ["Discord.exe"],
