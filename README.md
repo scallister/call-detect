@@ -36,11 +36,13 @@ call-detect.exe --install
 
 That copies the program to `%LOCALAPPDATA%\call-detect\`, writes a sample `config.yaml` if you do not already have one, starts it now, and runs it again at logon for the current user. No administrator rights.
 
+If call-detect is already installed, running a newer downloaded `call-detect.exe` (double-click or from a terminal, without flags) asks whether to replace the installed copy and restart it. `--install` does the same replacement without asking.
+
 ```text
 call-detect.exe --uninstall
 ```
 
-Removes the logon entry. Files stay in `%LOCALAPPDATA%\call-detect\` until you delete them. Use **Quit** on the tray icon to stop a running copy. Quit before running `--install` again so Windows can replace the executable.
+Removes the logon entry. Files stay in `%LOCALAPPDATA%\call-detect\` until you delete them. Use **Quit** on the tray icon to stop a running copy. An update will ask the running copy to exit so the file can be replaced.
 
 ### Flags
 
@@ -141,7 +143,7 @@ A second automation can turn a light (or anything else) on when `input_boolean.o
 Current stable Go. Cross-compile from Linux or macOS:
 
 ```text
-GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w" -o call-detect.exe ./cmd/call-detect
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect.exe ./cmd/call-detect
 ```
 
 `-H windowsgui` hides the console when the program is started from Explorer. Use `--console` or `--dump` when you want a terminal.

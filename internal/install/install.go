@@ -70,22 +70,13 @@ func CopyExecutable(dest string) error {
 	return os.Chmod(dest, 0o755)
 }
 
-func sameFile(a, b string) bool {
-	absA, err1 := filepath.Abs(a)
-	absB, err2 := filepath.Abs(b)
-	if err1 != nil || err2 != nil {
-		return a == b
-	}
-	return absA == absB
-}
-
 // Apply copies the executable, writes a sample config if needed, and enables autostart.
 func Apply() (Paths, error) {
 	paths, err := PrepareDir()
 	if err != nil {
 		return Paths{}, err
 	}
-	if err := CopyExecutable(paths.Exe); err != nil {
+	if err := Replace(paths.Exe); err != nil {
 		return paths, err
 	}
 	if err := WriteSampleConfig(paths.Config); err != nil {

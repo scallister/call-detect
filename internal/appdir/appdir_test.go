@@ -24,4 +24,7 @@ func TestPaths(t *testing.T) {
 	if filepath.Base(ExePath(dir)) != "call-detect.exe" {
 		t.Fatal(ExePath(dir))
 	}
+	if filepath.Base(VersionPath(dir)) != "version" {
+		t.Fatal(VersionPath(dir))
+	}
 }

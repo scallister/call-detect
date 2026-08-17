@@ -440,6 +440,26 @@ func openURL(url string) error {
 	return nil
 }
 
+// Confirm asks a yes/no question. Yes is true.
+func Confirm(title, text string) bool {
+	const mbYesNo = 0x00000004
+	const mbIconQuestion = 0x00000020
+	const mbSetForeground = 0x00010000
+	const idYes = 6
+	t, err1 := windows.UTF16PtrFromString(title)
+	b, err2 := windows.UTF16PtrFromString(text)
+	if err1 != nil || err2 != nil {
+		return false
+	}
+	r, _, _ := procMessageBoxW.Call(0, uintptr(unsafe.Pointer(b)), uintptr(unsafe.Pointer(t)), mbYesNo|mbIconQuestion|mbSetForeground)
+	return r == idYes
+}
+
+// Alert shows a modal message.
+func Alert(text string, isErr bool) {
+	alert(0, text, isErr)
+}
+
 func alert(owner windows.HWND, text string, isErr bool) {
 	const mbOK = 0x00000000
 	const mbIconError = 0x00000010

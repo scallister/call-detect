@@ -21,6 +21,7 @@ import (
 	"github.com/scallister/call-detect/internal/install"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/tray"
+	"github.com/scallister/call-detect/internal/version"
 	"github.com/scallister/call-detect/internal/wasapi"
 	"github.com/scallister/call-detect/internal/watch"
 	"github.com/scallister/call-detect/internal/webhook"
@@ -79,6 +80,10 @@ func run(args []string) int {
 		return 1
 	}
 
+	if code, done := maybeUpdate(); done {
+		return code
+	}
+
 	if singletonHeld() {
 		log.Print("already running")
 		return 0
@@ -96,6 +101,7 @@ func run(args []string) int {
 	cfg := config.Resolve(*webhookURL, os.Getenv("CALL_DETECT_WEBHOOK_URL"), file)
 	cfg.ConfigPath = cfgFile
 
+	log.Printf("version %s", version.Version)
 	log.Printf("config %s", cfgFile)
 	if cfg.WebhookURL != "" {
 		log.Printf("webhook enabled")
@@ -144,6 +150,7 @@ func run(args []string) int {
 		},
 	}
 
+	watchRemoteQuit(host.Quit)
 	host.Run(func() {
 		go func() {
 			if err := watch.Run(ctx, opt); err != nil {
@@ -186,10 +193,41 @@ func cmdInstall() int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	fmt.Printf("Installed %s\n", paths.Exe)
+	fmt.Printf("Installed %s (%s)\n", paths.Exe, version.Version)
 	fmt.Printf("Config    %s\n", paths.Config)
 	fmt.Println("Starts automatically at logon. Edit config.yaml to set webhook_url.")
 	return 0
+}
+
+func maybeUpdate() (int, bool) {
+	self, err := os.Executable()
+	if err != nil {
+		return 0, false
+	}
+	dir, err := appdir.Dir()
+	if err != nil {
+		return 0, false
+	}
+	installed := appdir.ExePath(dir)
+	offer, msg := install.OfferReason(self, installed, version.Version, install.ReadInstalledVersion(dir))
+	if !offer {
+		return 0, false
+	}
+	if !tray.Confirm("call-detect", msg) {
+		return 0, false
+	}
+	if err := install.Replace(installed); err != nil {
+		tray.Alert(err.Error(), true)
+		return 1, true
+	}
+	if err := install.EnableAutostart(installed); err != nil {
+		log.Print(err)
+	}
+	if err := install.Start(installed); err != nil {
+		tray.Alert(err.Error(), true)
+		return 1, true
+	}
+	return 0, true
 }
 
 func cmdUninstall() int {
