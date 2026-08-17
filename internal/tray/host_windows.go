@@ -5,6 +5,7 @@ package tray
 import (
 	"fmt"
 	"log"
+	"runtime"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -53,6 +54,7 @@ var (
 	shell32  = windows.NewLazySystemDLL("shell32.dll")
 	kernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
+	procRegisterWindowMessageW = user32.NewProc("RegisterWindowMessageW")
 	procRegisterClassExW       = user32.NewProc("RegisterClassExW")
 	procCreateWindowExW        = user32.NewProc("CreateWindowExW")
 	procDefWindowProcW         = user32.NewProc("DefWindowProcW")
@@ -123,14 +125,15 @@ type msg struct {
 }
 
 type hostImpl struct {
-	mu       sync.Mutex
-	hwnd     windows.HWND
-	idleIcon windows.Handle
-	busyIcon windows.Handle
-	snap     state.Snapshot
-	done     chan struct{}
-	once     sync.Once
-	actions  Actions
+	mu             sync.Mutex
+	hwnd           windows.HWND
+	idleIcon       windows.Handle
+	busyIcon       windows.Handle
+	snap           state.Snapshot
+	done           chan struct{}
+	once           sync.Once
+	actions        Actions
+	taskbarCreated uint32
 }
 
 func newHostImpl() hostImpl {
@@ -164,6 +167,7 @@ func (h *hostImpl) quit() {
 }
 
 func (h *hostImpl) run(ready func()) {
+	runtime.LockOSThread()
 	if err := h.setupTray(); err != nil {
 		log.Printf("tray setup failed: %v; continuing without icon", err)
 		startReady(ready)
@@ -187,6 +191,7 @@ func (h *hostImpl) setupTray() error {
 	}
 	h.idleIcon = idle
 	h.busyIcon = busy
+	h.taskbarCreated = registerWindowMessage("TaskbarCreated")
 
 	instance, _, _ := procGetModuleHandleW.Call(0)
 	className, _ := windows.UTF16PtrFromString("call-detect-tray")
@@ -254,10 +259,18 @@ func (h *hostImpl) messageLoop() {
 }
 
 func (h *hostImpl) wndProc(hwnd windows.HWND, msg uint32, wParam, lParam uintptr) uintptr {
+	if h.taskbarCreated != 0 && msg == h.taskbarCreated {
+		if err := h.notify(nimAdd); err != nil {
+			log.Printf("tray restore: %v", err)
+		}
+		return 0
+	}
 	switch msg {
 	case wmUpdate:
 		if err := h.notify(nimModify); err != nil {
-			log.Printf("tray update: %v", err)
+			if err2 := h.notify(nimAdd); err2 != nil {
+				log.Printf("tray update: %v", err)
+			}
 		}
 		return 0
 	case wmTray:
@@ -531,6 +544,15 @@ func iconFromICO(ico []byte) (windows.Handle, error) {
 
 func binaryLE32(b []byte) uint32 {
 	return uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16 | uint32(b[3])<<24
+}
+
+func registerWindowMessage(name string) uint32 {
+	p, err := windows.UTF16PtrFromString(name)
+	if err != nil {
+		return 0
+	}
+	r, _, _ := procRegisterWindowMessageW.Call(uintptr(unsafe.Pointer(p)))
+	return uint32(r)
 }
 
 func destroyIcon(h windows.Handle) {
