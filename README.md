@@ -24,8 +24,11 @@ call-detect only **reads** Windows ConsentStore timestamps, audio session metada
 
 ## Install
 
-1. Download `call-detect.exe` from [Releases](https://github.com/scallister/call-detect/releases), or build it (below).
-2. From a terminal:
+Download the latest `call-detect.exe`:
+
+**[call-detect.exe](https://github.com/scallister/call-detect/releases/latest/download/call-detect.exe)**
+
+That link always follows the newest [release](https://github.com/scallister/call-detect/releases/latest). Or [build it](#build). Then from a terminal:
 
 ```text
 call-detect.exe --install
@@ -73,7 +76,7 @@ The latest snapshot is also written to `%LOCALAPPDATA%\call-detect\status.json`.
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 
-Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, and **Quit**. The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes.
+Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes.
 
 ## Webhook
 
