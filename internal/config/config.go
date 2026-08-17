@@ -51,7 +51,7 @@ func Resolve(flagURL, envURL string, file File) Values {
 
 // SampleYAML is written on first install when no config exists.
 const SampleYAML = `# Optional webhook. When set, call-detect POSTs JSON whenever
-# busy, microphone, or webcam changes (after a short debounce).
+# call, microphone, or webcam changes (after a short debounce).
 #
 # webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"
 `
@@ -61,7 +61,7 @@ func WriteWebhook(path, url string) error {
 	url = strings.TrimSpace(url)
 	var b strings.Builder
 	b.WriteString(`# Optional webhook. When set, call-detect POSTs JSON whenever
-# busy, microphone, or webcam changes (after a short debounce).
+# call, microphone, or webcam changes (after a short debounce).
 `)
 	if url == "" {
 		b.WriteString(`# webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"

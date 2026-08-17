@@ -58,7 +58,7 @@ func TestWriteResult(t *testing.T) {
 		t.Fatal(err)
 	}
 	got := b.String()
-	if !strings.Contains(got, "Discord.exe") || !strings.Contains(got, "busy=true") {
+	if !strings.Contains(got, "Discord.exe") || !strings.Contains(got, "call=true") {
 		t.Fatalf("%s", got)
 	}
 }

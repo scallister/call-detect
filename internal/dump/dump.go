@@ -87,7 +87,7 @@ func WriteCamera(w io.Writer, cam detect.Camera) error {
 
 // WriteResult prints the confirmed snapshot.
 func WriteResult(w io.Writer, snap state.Snapshot) error {
-	_, err := fmt.Fprintf(w, "\nResult  busy=%v  microphone=%v  webcam=%v  sources=%s\n",
+	_, err := fmt.Fprintf(w, "\nResult  call=%v  microphone=%v  webcam=%v  sources=%s\n",
 		snap.Busy, snap.Microphone, snap.Webcam, formatSources(snap.Sources))
 	return err
 }

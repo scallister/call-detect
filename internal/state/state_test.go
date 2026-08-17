@@ -3,6 +3,7 @@ package state
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -98,5 +99,15 @@ func TestExampleJSON(t *testing.T) {
 	}
 	if s.UpdatedAt.IsZero() {
 		t.Fatal("updated_at")
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"call":true`) {
+		t.Fatalf("json: %s", raw)
+	}
+	if strings.Contains(string(raw), `"busy"`) {
+		t.Fatalf("legacy busy key: %s", raw)
 	}
 }

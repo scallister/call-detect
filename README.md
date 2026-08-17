@@ -8,7 +8,7 @@ It does not talk to Discord, Zoom, or any other app by name. It reads Windows pr
 
 | Field | Meaning |
 |-------|---------|
-| `busy` | Microphone **or** webcam is in use |
+| `call` | Microphone **or** webcam is in use |
 | `microphone` | Microphone is in use |
 | `webcam` | Webcam is in use |
 | `sources` | Short names of apps that currently hold a device |
@@ -80,11 +80,11 @@ Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logo
 
 ## Webhook
 
-On each debounced change to `busy`, `microphone`, or `webcam`, call-detect POSTs `Content-Type: application/json`. **Set webhook URL...** shows this same example next to the URL field:
+On each debounced change to `call`, `microphone`, or `webcam`, call-detect POSTs `Content-Type: application/json`. **Set webhook URL...** shows this same example next to the URL field:
 
 ```json
 {
-  "busy": true,
+  "call": true,
   "microphone": true,
   "webcam": false,
   "sources": ["Discord.exe"],
@@ -107,7 +107,7 @@ You can drive a helper or a light from that JSON. One simple setup:
 
    Use `https://` if that is how you reach Home Assistant.
 5. Set that URL as `webhook_url` (or `--webhook-url` / `CALL_DETECT_WEBHOOK_URL`).
-6. In the automation actions, turn the helper on or off from `trigger.json.busy`.
+6. In the automation actions, turn the helper on or off from `trigger.json.call`.
 
 Example:
 
@@ -123,7 +123,7 @@ action:
   - choose:
       - conditions:
           - condition: template
-            value_template: "{{ trigger.json.busy }}"
+            value_template: "{{ trigger.json.call }}"
         sequence:
           - action: input_boolean.turn_on
             target:
