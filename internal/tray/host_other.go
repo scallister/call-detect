@@ -20,9 +20,7 @@ func newHostImpl() hostImpl {
 func (h *hostImpl) update(state.Snapshot) {}
 
 func (h *hostImpl) run(ready func()) {
-	if ready != nil {
-		ready()
-	}
+	startReady(ready)
 	<-h.done
 }
 

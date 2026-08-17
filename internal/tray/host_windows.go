@@ -3,6 +3,7 @@
 package tray
 
 import (
+	"fmt"
 	"log"
 	"sync"
 	"syscall"
@@ -119,10 +120,12 @@ type hostImpl struct {
 	idleIcon windows.Handle
 	busyIcon windows.Handle
 	snap     state.Snapshot
+	done     chan struct{}
+	once     sync.Once
 }
 
 func newHostImpl() hostImpl {
-	return hostImpl{snap: SnapshotIdle()}
+	return hostImpl{snap: SnapshotIdle(), done: make(chan struct{})}
 }
 
 func (h *hostImpl) update(s state.Snapshot) {
@@ -136,6 +139,7 @@ func (h *hostImpl) update(s state.Snapshot) {
 }
 
 func (h *hostImpl) quit() {
+	h.once.Do(func() { close(h.done) })
 	h.mu.Lock()
 	hwnd := h.hwnd
 	h.mu.Unlock()
@@ -145,20 +149,29 @@ func (h *hostImpl) quit() {
 }
 
 func (h *hostImpl) run(ready func()) {
+	if err := h.setupTray(); err != nil {
+		log.Printf("tray setup failed: %v; continuing without icon", err)
+		startReady(ready)
+		<-h.done
+		return
+	}
+	defer h.teardownTray()
+	startReady(ready)
+	h.messageLoop()
+}
+
+func (h *hostImpl) setupTray() error {
 	idle, err := iconFromICO(IdleICO())
 	if err != nil {
-		log.Printf("tray idle icon: %v", err)
-		return
+		return fmt.Errorf("idle icon: %w", err)
 	}
 	busy, err := iconFromICO(BusyICO())
 	if err != nil {
-		log.Printf("tray busy icon: %v", err)
-		return
+		destroyIcon(idle)
+		return fmt.Errorf("busy icon: %w", err)
 	}
 	h.idleIcon = idle
 	h.busyIcon = busy
-	defer destroyIcon(idle)
-	defer destroyIcon(busy)
 
 	instance, _, _ := procGetModuleHandleW.Call(0)
 	className, _ := windows.UTF16PtrFromString("call-detect-tray")
@@ -169,8 +182,8 @@ func (h *hostImpl) run(ready func()) {
 		ClassName: className,
 	}
 	if r, _, err := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&wc))); r == 0 {
-		log.Printf("tray register class: %v", err)
-		return
+		h.teardownTray()
+		return fmt.Errorf("register class: %w", err)
 	}
 
 	title, _ := windows.UTF16PtrFromString("call-detect")
@@ -183,28 +196,42 @@ func (h *hostImpl) run(ready func()) {
 		0, 0, instance, 0,
 	)
 	if hwnd == 0 {
-		log.Printf("tray create window: %v", err)
-		return
+		h.teardownTray()
+		return fmt.Errorf("create window: %w", err)
 	}
 	h.mu.Lock()
 	h.hwnd = windows.HWND(hwnd)
 	h.mu.Unlock()
 
 	if err := h.notify(nimAdd); err != nil {
-		log.Printf("tray add icon: %v", err)
-		return
+		h.teardownTray()
+		return fmt.Errorf("add icon: %w", err)
 	}
-	defer func() { _ = h.notify(nimDelete) }()
+	return nil
+}
 
-	if ready != nil {
-		go ready()
+func (h *hostImpl) teardownTray() {
+	_ = h.notify(nimDelete)
+	h.mu.Lock()
+	hwnd := h.hwnd
+	idle, busy := h.idleIcon, h.busyIcon
+	h.hwnd = 0
+	h.idleIcon = 0
+	h.busyIcon = 0
+	h.mu.Unlock()
+	if hwnd != 0 {
+		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
 	}
+	destroyIcon(idle)
+	destroyIcon(busy)
+}
 
+func (h *hostImpl) messageLoop() {
 	var m msg
 	for {
 		r, _, _ := procGetMessageW.Call(uintptr(unsafe.Pointer(&m)), 0, 0, 0)
 		if int32(r) <= 0 {
-			break
+			return
 		}
 		_, _, _ = procTranslateMessage.Call(uintptr(unsafe.Pointer(&m)))
 		_, _, _ = procDispatchMessageW.Call(uintptr(unsafe.Pointer(&m)))

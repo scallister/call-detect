@@ -7,6 +7,13 @@ type Host struct {
 	impl hostImpl
 }
 
+// startReady starts the detection loop. It must run even if the tray icon fails.
+func startReady(ready func()) {
+	if ready != nil {
+		go ready()
+	}
+}
+
 // New creates a tray host. Call Run on the main thread on Windows.
 func New() *Host {
 	return &Host{impl: newHostImpl()}
@@ -17,7 +24,8 @@ func (h *Host) Update(s state.Snapshot) {
 	h.impl.update(s)
 }
 
-// Run shows the icon and blocks until the user chooses Quit.
+// Run shows the icon and blocks until Quit. ready always starts, even if
+// the notification icon cannot be created, so detection and webhooks still run.
 func (h *Host) Run(ready func()) {
 	h.impl.run(ready)
 }
