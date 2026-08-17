@@ -1,0 +1,139 @@
+package watch
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/state"
+	"github.com/scallister/call-detect/internal/webhook"
+)
+
+type memStore struct {
+	mu      sync.Mutex
+	entries map[string][]consentstore.Entry
+}
+
+func (m *memStore) List(capability string) ([]consentstore.Entry, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]consentstore.Entry(nil), m.entries[capability]...), nil
+}
+
+func (m *memStore) setMic(inUse bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.entries == nil {
+		m.entries = map[string][]consentstore.Entry{}
+	}
+	stop := uint64(0)
+	if !inUse {
+		stop = 2
+	}
+	m.entries[consentstore.CapabilityMicrophone] = []consentstore.Entry{
+		{KeyName: "Discord.exe", Start: 1, Stop: stop},
+	}
+}
+
+func TestRunDebouncedWebhookAndStatus(t *testing.T) {
+	t.Parallel()
+	var posts atomic.Int32
+	var lastBusy atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var s state.Snapshot
+		_ = json.NewDecoder(r.Body).Decode(&s)
+		posts.Add(1)
+		lastBusy.Store(s.Busy)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	store := &memStore{}
+	store.setMic(false)
+	dir := t.TempDir()
+	statusPath := filepath.Join(dir, "status.json")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	updates := make(chan state.Snapshot, 8)
+	go func() {
+		_ = Run(ctx, Options{
+			Store:      store,
+			Debounce:   40 * time.Millisecond,
+			Poll:       10 * time.Millisecond,
+			StatusPath: statusPath,
+			Webhook:    &webhook.Client{URL: srv.URL, HTTP: srv.Client(), MaxTries: 1},
+			OnUpdate: func(s state.Snapshot, _ bool) {
+				updates <- s
+			},
+		})
+	}()
+
+	idle := waitSnap(t, updates, 500*time.Millisecond)
+	if idle.Busy {
+		t.Fatalf("expected initial idle, got %+v", idle)
+	}
+	if posts.Load() != 1 || lastBusy.Load() {
+		t.Fatalf("initial webhook posts=%d busy=%v", posts.Load(), lastBusy.Load())
+	}
+
+	store.setMic(true)
+	busy := waitBusy(t, updates, true, time.Second)
+	if !busy.Microphone || busy.Sources[0] != "Discord.exe" {
+		t.Fatalf("busy %+v", busy)
+	}
+	if posts.Load() != 2 || !lastBusy.Load() {
+		t.Fatalf("busy webhook posts=%d busy=%v", posts.Load(), lastBusy.Load())
+	}
+
+	raw, err := os.ReadFile(statusPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file state.Snapshot
+	if err := json.Unmarshal(raw, &file); err != nil || !file.Busy {
+		t.Fatalf("status file: %s %v", raw, err)
+	}
+
+	store.setMic(false)
+	_ = waitBusy(t, updates, false, time.Second)
+	if posts.Load() != 3 || lastBusy.Load() {
+		t.Fatalf("idle webhook posts=%d busy=%v", posts.Load(), lastBusy.Load())
+	}
+}
+
+func waitSnap(t *testing.T, ch <-chan state.Snapshot, d time.Duration) state.Snapshot {
+	t.Helper()
+	select {
+	case s := <-ch:
+		return s
+	case <-time.After(d):
+		t.Fatal("timeout waiting for snapshot")
+		return state.Snapshot{}
+	}
+}
+
+func waitBusy(t *testing.T, ch <-chan state.Snapshot, busy bool, d time.Duration) state.Snapshot {
+	t.Helper()
+	deadline := time.Now().Add(d)
+	for time.Now().Before(deadline) {
+		select {
+		case s := <-ch:
+			if s.Busy == busy {
+				return s
+			}
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	t.Fatalf("timeout waiting for busy=%v", busy)
+	return state.Snapshot{}
+}
