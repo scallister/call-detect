@@ -17,6 +17,16 @@ type Snapshot struct {
 	UpdatedAt  time.Time `json:"updated_at"`
 }
 
+// ExampleJSON is a sample snapshot in the same shape as the webhook POST body
+// and status.json. The tray webhook dialog shows this next to the URL field.
+const ExampleJSON = `{
+  "busy": true,
+  "microphone": true,
+  "webcam": false,
+  "sources": ["Discord.exe"],
+  "updated_at": "2026-08-17T12:00:00Z"
+}`
+
 // FromUsages builds an undebounced snapshot from ConsentStore reads.
 func FromUsages(mic, cam []consentstore.Usage, now time.Time) Snapshot {
 	micOn := consentstore.AnyInUse(mic)

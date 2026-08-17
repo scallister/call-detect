@@ -395,7 +395,7 @@ func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
 		if actions.WebhookURL != nil {
 			cur = actions.WebhookURL()
 		}
-		url, ok := promptText(hwnd, "Webhook URL", "Home Assistant webhook or other POST URL.\nLeave empty to disable.", cur)
+		url, ok := promptText(hwnd, "Webhook URL", "Home Assistant webhook or other POST URL.\nLeave empty to disable.", cur, state.ExampleJSON)
 		if !ok {
 			return
 		}

@@ -1,6 +1,7 @@
 package state
 
 import (
+	"encoding/json"
 	"slices"
 	"testing"
 	"time"
@@ -83,5 +84,19 @@ func TestDebouncerSourcesOnly(t *testing.T) {
 	}
 	if !slices.Equal(r.State.Sources, []string{"chrome.exe"}) {
 		t.Fatalf("sources: %v", r.State.Sources)
+	}
+}
+
+func TestExampleJSON(t *testing.T) {
+	t.Parallel()
+	var s Snapshot
+	if err := json.Unmarshal([]byte(ExampleJSON), &s); err != nil {
+		t.Fatal(err)
+	}
+	if !s.Busy || !s.Microphone || s.Webcam || !slices.Equal(s.Sources, []string{"Discord.exe"}) {
+		t.Fatalf("example payload: %+v", s)
+	}
+	if s.UpdatedAt.IsZero() {
+		t.Fatal("updated_at")
 	}
 }
