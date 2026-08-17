@@ -8,14 +8,23 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/detect"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/status"
 	"github.com/scallister/call-detect/internal/webhook"
 )
 
+// AudioSource lists live audio sessions. Optional; if nil, ConsentStore is used alone.
+type AudioSource interface {
+	Sessions() detect.Audio
+}
+
+var errNoAudio = fmt.Errorf("audio source not configured")
+
 // Options control the poll loop.
 type Options struct {
 	Store      consentstore.Store
+	Audio      AudioSource
 	Debounce   time.Duration
 	Poll       time.Duration
 	StatusPath string
@@ -43,6 +52,7 @@ func Run(ctx context.Context, opt Options) error {
 	deb := state.Debouncer{Delay: opt.Debounce}
 	tick := time.NewTicker(opt.Poll)
 	defer tick.Stop()
+	loggedAudioErr := false
 
 	step := func(now time.Time) {
 		micEnt, err := opt.Store.List(consentstore.CapabilityMicrophone)
@@ -55,7 +65,17 @@ func Run(ctx context.Context, opt Options) error {
 			logger.Printf("webcam: %v", err)
 			return
 		}
-		raw := state.FromUsages(consentstore.ParseAll(micEnt), consentstore.ParseAll(camEnt), now)
+		mic := consentstore.ParseAll(micEnt)
+		cam := consentstore.ParseAll(camEnt)
+		audio := detect.Audio{Err: errNoAudio}
+		if opt.Audio != nil {
+			audio = opt.Audio.Sessions()
+			if audio.Err != nil && !loggedAudioErr {
+				logger.Printf("audio sessions: %v (using ConsentStore only)", audio.Err)
+				loggedAudioErr = true
+			}
+		}
+		raw := detect.Confirm(mic, cam, audio, now)
 		res := deb.Observe(raw, now)
 		if !res.Changed {
 			return

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/scallister/call-detect/internal/state"
@@ -31,10 +32,36 @@ type Client struct {
 	HTTP     *http.Client
 	MaxTries int
 	Backoff  time.Duration
+
+	mu sync.Mutex
+}
+
+// GetURL returns the current destination.
+func (c *Client) GetURL() string {
+	return c.url()
+}
+
+// SetURL changes the destination. Empty disables POSTs.
+func (c *Client) SetURL(url string) {
+	if c == nil {
+		return
+	}
+	c.mu.Lock()
+	c.URL = url
+	c.mu.Unlock()
+}
+
+func (c *Client) url() string {
+	if c == nil {
+		return ""
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.URL
 }
 
 func (c *Client) enabled() bool {
-	return c != nil && c.URL != ""
+	return c.url() != ""
 }
 
 func (c *Client) httpClient() *http.Client {
@@ -98,7 +125,8 @@ func (c *Client) Post(ctx context.Context, s state.Snapshot) error {
 }
 
 func (c *Client) doOnce(ctx context.Context, body []byte) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.URL, bytes.NewReader(body))
+	dest := c.url()
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, dest, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -114,6 +142,6 @@ func (c *Client) doOnce(ctx context.Context, body []byte) error {
 	}
 	return &statusError{
 		status: resp.StatusCode,
-		msg:    fmt.Sprintf("webhook %s: %s", c.URL, resp.Status),
+		msg:    fmt.Sprintf("webhook %s: %s", dest, resp.Status),
 	}
 }

@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/detect"
+	"github.com/scallister/call-detect/internal/state"
 )
 
 func TestWrite(t *testing.T) {
@@ -23,5 +25,17 @@ func TestWrite(t *testing.T) {
 	}
 	if !strings.Contains(got, "(no records)") {
 		t.Fatalf("empty webcam: %s", got)
+	}
+}
+
+func TestWriteAudio(t *testing.T) {
+	t.Parallel()
+	var b strings.Builder
+	if err := WriteAudio(&b, detect.Audio{Capture: []string{"Discord.exe"}}, state.Snapshot{Busy: true, Microphone: true, Sources: []string{"Discord.exe"}}); err != nil {
+		t.Fatal(err)
+	}
+	got := b.String()
+	if !strings.Contains(got, "Discord.exe") || !strings.Contains(got, "busy=true") {
+		t.Fatalf("%s", got)
 	}
 }

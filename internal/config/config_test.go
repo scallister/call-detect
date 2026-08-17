@@ -55,3 +55,22 @@ func TestLoadFileAndSample(t *testing.T) {
 		t.Fatalf("load: %+v %v", got, err)
 	}
 }
+
+func TestWriteWebhook(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := WriteWebhook(path, "http://homeassistant.local:8123/api/webhook/abc"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadFile(path)
+	if err != nil || got.WebhookURL != "http://homeassistant.local:8123/api/webhook/abc" {
+		t.Fatalf("set: %+v %v", got, err)
+	}
+	if err := WriteWebhook(path, "  "); err != nil {
+		t.Fatal(err)
+	}
+	got, err = LoadFile(path)
+	if err != nil || got.WebhookURL != "" {
+		t.Fatalf("clear: %+v %v", got, err)
+	}
+}

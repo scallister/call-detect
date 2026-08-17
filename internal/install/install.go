@@ -79,6 +79,24 @@ func sameFile(a, b string) bool {
 	return absA == absB
 }
 
+// Apply copies the executable, writes a sample config if needed, and enables autostart.
+func Apply() (Paths, error) {
+	paths, err := PrepareDir()
+	if err != nil {
+		return Paths{}, err
+	}
+	if err := CopyExecutable(paths.Exe); err != nil {
+		return paths, err
+	}
+	if err := WriteSampleConfig(paths.Config); err != nil {
+		return paths, err
+	}
+	if err := EnableAutostart(paths.Exe); err != nil {
+		return paths, err
+	}
+	return paths, nil
+}
+
 // WriteSampleConfig creates a commented config.yaml if missing.
 func WriteSampleConfig(path string) error {
 	return config.WriteSample(path)

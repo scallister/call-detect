@@ -19,6 +19,11 @@ func New() *Host {
 	return &Host{impl: newHostImpl()}
 }
 
+// SetActions attaches Install / Uninstall / webhook menu handlers.
+func (h *Host) SetActions(a Actions) {
+	h.impl.setActions(a)
+}
+
 // Update changes the icon, tooltip, and menu to match s.
 func (h *Host) Update(s state.Snapshot) {
 	h.impl.update(s)

@@ -13,9 +13,14 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/detect"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/webhook"
 )
+
+type staticAudio struct{ a detect.Audio }
+
+func (s staticAudio) Sessions() detect.Audio { return s.a }
 
 type memStore struct {
 	mu      sync.Mutex
@@ -108,6 +113,35 @@ func TestRunDebouncedWebhookAndStatus(t *testing.T) {
 	_ = waitBusy(t, updates, false, time.Second)
 	if posts.Load() != 3 || lastBusy.Load() {
 		t.Fatalf("idle webhook posts=%d busy=%v", posts.Load(), lastBusy.Load())
+	}
+}
+
+func TestRunIgnoresConsentWithoutCapture(t *testing.T) {
+	t.Parallel()
+	store := &memStore{}
+	store.setMic(true)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updates := make(chan state.Snapshot, 8)
+	go func() {
+		_ = Run(ctx, Options{
+			Store:    store,
+			Audio:    staticAudio{},
+			Debounce: 20 * time.Millisecond,
+			Poll:     10 * time.Millisecond,
+			OnUpdate: func(s state.Snapshot, _ bool) { updates <- s },
+		})
+	}()
+	idle := waitSnap(t, updates, 500*time.Millisecond)
+	if idle.Busy {
+		t.Fatalf("expected idle without capture session, got %+v", idle)
+	}
+	select {
+	case s := <-updates:
+		if s.Busy {
+			t.Fatalf("became busy: %+v", s)
+		}
+	case <-time.After(80 * time.Millisecond):
 	}
 }
 

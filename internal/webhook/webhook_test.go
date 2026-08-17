@@ -21,6 +21,38 @@ func TestPostEmptyURL(t *testing.T) {
 	}
 }
 
+func TestSetURL(t *testing.T) {
+	t.Parallel()
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := &Client{HTTP: srv.Client(), MaxTries: 1}
+	if err := c.Post(context.Background(), state.Snapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	if n.Load() != 0 {
+		t.Fatal("empty URL should not POST")
+	}
+	c.SetURL(srv.URL)
+	if err := c.Post(context.Background(), state.Snapshot{Busy: true}); err != nil {
+		t.Fatal(err)
+	}
+	if n.Load() != 1 {
+		t.Fatalf("posts %d", n.Load())
+	}
+	c.SetURL("")
+	if err := c.Post(context.Background(), state.Snapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	if n.Load() != 1 {
+		t.Fatalf("cleared URL still posted: %d", n.Load())
+	}
+}
+
 func TestPostJSON(t *testing.T) {
 	t.Parallel()
 	var got state.Snapshot
