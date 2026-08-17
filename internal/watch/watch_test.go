@@ -22,6 +22,10 @@ type staticAudio struct{ a detect.Audio }
 
 func (s staticAudio) Sessions() detect.Audio { return s.a }
 
+type staticCamera struct{ c detect.Camera }
+
+func (s staticCamera) Streaming() detect.Camera { return s.c }
+
 type memStore struct {
 	mu      sync.Mutex
 	entries map[string][]consentstore.Entry
@@ -142,6 +146,28 @@ func TestRunIgnoresConsentWithoutCapture(t *testing.T) {
 			t.Fatalf("became busy: %+v", s)
 		}
 	case <-time.After(80 * time.Millisecond):
+	}
+}
+
+func TestRunCameraOnlyWithoutAudio(t *testing.T) {
+	t.Parallel()
+	store := &memStore{entries: map[string][]consentstore.Entry{}}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updates := make(chan state.Snapshot, 8)
+	go func() {
+		_ = Run(ctx, Options{
+			Store:    store,
+			Audio:    staticAudio{},
+			Camera:   staticCamera{c: detect.Camera{Streaming: []string{"chrome.exe"}}},
+			Debounce: 20 * time.Millisecond,
+			Poll:     10 * time.Millisecond,
+			OnUpdate: func(s state.Snapshot, _ bool) { updates <- s },
+		})
+	}()
+	busy := waitBusy(t, updates, true, time.Second)
+	if !busy.Webcam || busy.Microphone || busy.Sources[0] != "chrome.exe" {
+		t.Fatalf("camera-only %+v", busy)
 	}
 }
 

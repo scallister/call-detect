@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/appdir"
+	"github.com/scallister/call-detect/internal/camera"
 	"github.com/scallister/call-detect/internal/config"
 	"github.com/scallister/call-detect/internal/consentstore"
 	"github.com/scallister/call-detect/internal/detect"
@@ -34,7 +35,7 @@ func run(args []string) int {
 	fs.SetOutput(os.Stderr)
 	installFlag := fs.Bool("install", false, "copy the program to the user data directory and start it at logon")
 	uninstallFlag := fs.Bool("uninstall", false, "remove the logon autostart entry")
-	dumpFlag := fs.Bool("dump", false, "print ConsentStore records, live audio sessions, and the confirmed result")
+	dumpFlag := fs.Bool("dump", false, "print ConsentStore records, live audio and camera activity, and the confirmed result")
 	consoleFlag := fs.Bool("console", false, "show log output in a console window")
 	webhookURL := fs.String("webhook-url", "", "override webhook URL (also CALL_DETECT_WEBHOOK_URL or config.yaml)")
 	configPath := fs.String("config", "", "path to config.yaml (default: user data directory)")
@@ -132,6 +133,7 @@ func run(args []string) int {
 	opt := watch.Options{
 		Store:      consentstore.Windows{},
 		Audio:      wasapi.Source{},
+		Camera:     camera.Source{},
 		Debounce:   2 * time.Second,
 		Poll:       time.Second,
 		StatusPath: appdir.StatusPath(dir),
@@ -228,8 +230,17 @@ func cmdDump() int {
 		return 1
 	}
 	audio := wasapi.Source{}.Sessions()
-	snap := detect.Confirm(micU, camU, audio, time.Now())
-	if err := dump.WriteAudio(os.Stdout, audio, snap); err != nil {
+	camLive := camera.Source{}.Streaming()
+	snap := detect.Confirm(micU, camU, audio, camLive, time.Now())
+	if err := dump.WriteAudio(os.Stdout, audio); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if err := dump.WriteCamera(os.Stdout, camLive); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	if err := dump.WriteResult(os.Stdout, snap); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
