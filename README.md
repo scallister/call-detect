@@ -2,7 +2,7 @@
 
 A small Windows background program that notices when an app is using the **microphone** or **webcam**, shows that in the notification area, and can POST a JSON webhook when the state changes.
 
-It does not talk to Discord, Zoom, or any other app by name. It reads the same Windows privacy records that power the camera and microphone indicators, so it works with current and future programs.
+It does not talk to Discord, Zoom, or any other app by name. It reads Windows privacy records and confirms them against live audio capture sessions, so it works with current and future programs.
 
 ## What it reports
 
@@ -14,13 +14,13 @@ It does not talk to Discord, Zoom, or any other app by name. It reads the same W
 | `sources` | Short names of apps that currently hold a device |
 | `updated_at` | When that snapshot was published |
 
-Speaker or headset **playback** (music, videos) does not count. Game voice chat does, because the microphone is in use.
+Speaker or headset **playback** (music, videos) does not count. Game voice chat does, because the microphone has an active capture session.
 
 State is debounced for about two seconds so a brief device grab does not flicker the tray icon or the webhook.
 
 ## Privacy
 
-call-detect only **reads** Windows ConsentStore timestamps. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default.
+call-detect only **reads** Windows ConsentStore timestamps and audio session metadata (process names). It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default.
 
 ## Install
 
@@ -45,7 +45,7 @@ Removes the logon entry. Files stay in `%LOCALAPPDATA%\call-detect\` until you d
 |------|---------|
 | `--install` | Install and start at logon |
 | `--uninstall` | Remove logon autostart |
-| `--dump` | Print current ConsentStore records |
+| `--dump` | Print ConsentStore records, live audio sessions, and the confirmed result |
 | `--console` | Also write logs to a console window |
 | `--webhook-url` | Override the webhook destination |
 | `--config` | Path to `config.yaml` |
@@ -153,6 +153,10 @@ Windows stores last-used times under:
 
 `HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone`
 
-and the same path with `webcam`. Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. A device is treated as in use when `LastUsedTimeStart` is set and `LastUsedTimeStop` is zero or older than start.
+and the same path with `webcam`. Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. Those keys stay “in use” (`LastUsedTimeStop` is zero) for as long as an app holds the device — including after you leave a Discord or browser call.
+
+call-detect treats a device as in use only when ConsentStore says so **and** that same app has an active WASAPI session (capture for the microphone; capture or render for the webcam). Playback-only apps never match a microphone record.
+
+If audio session enumeration fails, it falls back to ConsentStore alone.
 
 The program must run as the signed-in user (not as a Windows service under Local System) so it can read that user’s keys.

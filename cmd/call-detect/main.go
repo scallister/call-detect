@@ -14,10 +14,12 @@ import (
 	"github.com/scallister/call-detect/internal/appdir"
 	"github.com/scallister/call-detect/internal/config"
 	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/detect"
 	"github.com/scallister/call-detect/internal/dump"
 	"github.com/scallister/call-detect/internal/install"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/tray"
+	"github.com/scallister/call-detect/internal/wasapi"
 	"github.com/scallister/call-detect/internal/watch"
 	"github.com/scallister/call-detect/internal/webhook"
 )
@@ -31,7 +33,7 @@ func run(args []string) int {
 	fs.SetOutput(os.Stderr)
 	installFlag := fs.Bool("install", false, "copy the program to the user data directory and start it at logon")
 	uninstallFlag := fs.Bool("uninstall", false, "remove the logon autostart entry")
-	dumpFlag := fs.Bool("dump", false, "print current microphone and webcam ConsentStore records and exit")
+	dumpFlag := fs.Bool("dump", false, "print ConsentStore records, live audio sessions, and the confirmed result")
 	consoleFlag := fs.Bool("console", false, "show log output in a console window")
 	webhookURL := fs.String("webhook-url", "", "override webhook URL (also CALL_DETECT_WEBHOOK_URL or config.yaml)")
 	configPath := fs.String("config", "", "path to config.yaml (default: user data directory)")
@@ -103,6 +105,7 @@ func run(args []string) int {
 	host := tray.New()
 	opt := watch.Options{
 		Store:      consentstore.Windows{},
+		Audio:      wasapi.Source{},
 		Debounce:   2 * time.Second,
 		Poll:       time.Second,
 		StatusPath: appdir.StatusPath(dir),
@@ -206,7 +209,15 @@ func cmdDump() int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	if err := dump.Write(os.Stdout, consentstore.ParseAll(mic), consentstore.ParseAll(cam)); err != nil {
+	micU := consentstore.ParseAll(mic)
+	camU := consentstore.ParseAll(cam)
+	if err := dump.Write(os.Stdout, micU, camU); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 1
+	}
+	audio := wasapi.Source{}.Sessions()
+	snap := detect.Confirm(micU, camU, audio, time.Now())
+	if err := dump.WriteAudio(os.Stdout, audio, snap); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}

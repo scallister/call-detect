@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/consentstore"
+	"github.com/scallister/call-detect/internal/detect"
+	"github.com/scallister/call-detect/internal/state"
 )
 
 // Write prints microphone and webcam usage to w.
@@ -54,4 +56,40 @@ func formatTimes(u consentstore.Usage) string {
 		parts = append(parts, "stop="+u.Stop.UTC().Format(time.RFC3339))
 	}
 	return strings.Join(parts, " ")
+}
+
+// WriteAudio prints live WASAPI sessions and the confirmed snapshot.
+func WriteAudio(w io.Writer, audio detect.Audio, snap state.Snapshot) error {
+	if _, err := fmt.Fprintln(w, "\nActive audio sessions"); err != nil {
+		return err
+	}
+	if audio.Err != nil {
+		_, err := fmt.Fprintf(w, "  (unavailable: %v)\n", audio.Err)
+		return err
+	}
+	if err := writeNames(w, "  capture", audio.Capture); err != nil {
+		return err
+	}
+	if err := writeNames(w, "  render ", audio.Render); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintf(w, "\nResult  busy=%v  microphone=%v  webcam=%v  sources=%s\n",
+		snap.Busy, snap.Microphone, snap.Webcam, formatSources(snap.Sources))
+	return err
+}
+
+func writeNames(w io.Writer, label string, names []string) error {
+	if len(names) == 0 {
+		_, err := fmt.Fprintf(w, "%s  (none)\n", label)
+		return err
+	}
+	_, err := fmt.Fprintf(w, "%s  %s\n", label, strings.Join(names, ", "))
+	return err
+}
+
+func formatSources(names []string) string {
+	if len(names) == 0 {
+		return "(none)"
+	}
+	return strings.Join(names, ", ")
 }
