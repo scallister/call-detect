@@ -101,10 +101,6 @@ func run(args []string) int {
 	if cfg.WebhookURL != "" {
 		log.Printf("webhook enabled")
 	}
-	if runtime.GOOS != "windows" {
-		log.Print("no tray icon on this OS; status.json is updated until SIGINT/SIGTERM")
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 

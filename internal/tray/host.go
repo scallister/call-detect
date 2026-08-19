@@ -2,8 +2,8 @@ package tray
 
 import "github.com/scallister/call-detect/internal/state"
 
-// Host is the notification-area icon on Windows. On other OSes it only
-// keeps the process running until Quit.
+// Host is the notification-area / menu-bar icon. If the desktop tray
+// cannot be created, Run still keeps the process alive until Quit.
 type Host struct {
 	impl hostImpl
 }

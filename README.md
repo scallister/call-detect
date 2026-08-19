@@ -1,6 +1,6 @@
 # call-detect
 
-A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. On Windows it also shows a notification-area icon.
+A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. All three show a tray / menu-bar icon with the same actions.
 
 It does not talk to Discord, Zoom, or any other app by name. It reads OS device-in-use signals, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
 
@@ -34,25 +34,19 @@ Download a binary from the newest [release](https://github.com/scallister/call-d
 |----|----------|
 | Windows amd64 | **[call-detect.exe](https://github.com/scallister/call-detect/releases/latest/download/call-detect.exe)** |
 | Linux amd64 | **[call-detect-linux-amd64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-linux-amd64)** |
+| Linux arm64 | **[call-detect-linux-arm64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-linux-arm64)** |
 | macOS Apple silicon | **[call-detect-darwin-arm64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-arm64)** |
 | macOS Intel | **[call-detect-darwin-amd64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-amd64)** |
 
 Or [build it](#build). Release builds are unsigned. On Windows, SmartScreen may warn that the file is unrecognized; choose **More info → Run anyway**.
 
-**Windows.** Double-click `call-detect.exe`. When it is running, **right-click the call-detect icon on the taskbar** (notification area, near the clock) and choose **Install (start at logon)**. That copies the program to `%LOCALAPPDATA%\call-detect\` and starts it at logon. **Uninstall (remove logon startup)** turns auto-run off. The icon keeps running until **Quit**. Files stay until you delete them.
+Make the file executable on macOS/Linux (`chmod +x …`), then run it. When it is running, use the tray / menu-bar icon and choose **Install (start at logon)**. That copies the program into the user data directory and starts it at logon. **Uninstall (remove logon startup)** turns auto-run off. The icon keeps running until **Quit**. Files stay until you delete them.
 
-**macOS and Linux.** There is no tray icon yet. Make the file executable, run it, then install auto-run from a terminal:
-
-```text
-chmod +x call-detect-linux-amd64   # or the darwin build
-./call-detect-linux-amd64 --install
-```
-
-`--install` copies the binary into the user data directory, writes a sample `config.yaml` if needed, and enables logon autostart (LaunchAgent on macOS, XDG autostart on Linux). `--uninstall` removes autostart. Files stay until you delete them. Ctrl+C (or SIGTERM) stops a running copy.
+`--install` / `--uninstall` do the same from a terminal (LaunchAgent on macOS, XDG autostart on Linux, current-user Run key on Windows). Ctrl+C or SIGTERM also stops a running copy.
 
 No administrator rights on any OS.
 
-If call-detect is already installed on Windows, running a newer downloaded `call-detect.exe` asks whether to replace the installed copy. `--install` replaces without asking.
+If call-detect is already installed, running a newer downloaded binary asks whether to replace the installed copy (Yes/No dialog). `--install` replaces without asking.
 
 ### Flags
 
@@ -91,17 +85,23 @@ The latest snapshot is also written to `status.json` in that directory.
 
 ## Tray icon
 
-Windows only. On macOS and Linux, call-detect runs in the background and updates `status.json` (and the webhook) until you stop it.
+Same gray / green / red ring on every OS:
 
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
-Right-click the icon for microphone / webcam / sources, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. Install and Uninstall are the usual way to add or remove auto-run; see [Install](#install). The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes, and comes back if Explorer restarts.
+Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
+
+**Linux.** The icon is a [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/). KDE Plasma and many status-notifier hosts show it natively. GNOME needs an AppIndicator / StatusNotifier extension. Dialogs use `zenity` or `kdialog` when present (install one for Install / webhook / self-update prompts). Left-click can also open a zenity list if the host does not show the D-Bus menu.
+
+**macOS.** The icon is a menu-bar extra. Dialogs use the standard AppleScript prompts. The binary is not an `.app` bundle; Gatekeeper may still ask you to open it from Finder the first time.
+
+**Windows.** The icon is in the notification area. It comes back if Explorer restarts.
 
 ## Webhook
 
-call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. A failed POST turns the Windows icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
+call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. A failed POST turns the tray icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
 
 ```json
 {
@@ -164,6 +164,7 @@ Current stable Go. `CGO_ENABLED=0` on every target:
 ```text
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect.exe ./cmd/call-detect
 GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect-linux-amd64 ./cmd/call-detect
+GOOS=linux   GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect-linux-arm64 ./cmd/call-detect
 GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect-darwin-arm64 ./cmd/call-detect
 ```
 

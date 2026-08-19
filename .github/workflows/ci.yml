@@ -31,6 +31,8 @@ jobs:
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect.exe ./cmd/call-detect
       - name: Build Linux amd64
         run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-linux-amd64 ./cmd/call-detect
+      - name: Build Linux arm64
+        run: GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-linux-arm64 ./cmd/call-detect
       - name: Build macOS amd64
         run: GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-darwin-amd64 ./cmd/call-detect
       - name: Build macOS arm64
@@ -41,6 +43,7 @@ jobs:
           path: |
             call-detect.exe
             call-detect-linux-amd64
+            call-detect-linux-arm64
             call-detect-darwin-amd64
             call-detect-darwin-arm64
 
@@ -61,6 +64,7 @@ jobs:
           flags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${ver}"
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui ${flags}" -o call-detect.exe ./cmd/call-detect
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-linux-amd64 ./cmd/call-detect
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-linux-arm64 ./cmd/call-detect
           GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-darwin-amd64 ./cmd/call-detect
           GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-darwin-arm64 ./cmd/call-detect
       - uses: softprops/action-gh-release@v2
@@ -68,5 +72,6 @@ jobs:
           files: |
             call-detect.exe
             call-detect-linux-amd64
+            call-detect-linux-arm64
             call-detect-darwin-amd64
             call-detect-darwin-arm64
