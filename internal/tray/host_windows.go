@@ -129,7 +129,9 @@ type hostImpl struct {
 	hwnd           windows.HWND
 	idleIcon       windows.Handle
 	busyIcon       windows.Handle
+	errorIcon      windows.Handle
 	snap           state.Snapshot
+	webhookFailed  bool
 	done           chan struct{}
 	once           sync.Once
 	actions        Actions
@@ -151,6 +153,18 @@ func (h *hostImpl) update(s state.Snapshot) {
 	h.snap = s
 	hwnd := h.hwnd
 	h.mu.Unlock()
+	h.postUpdate(hwnd)
+}
+
+func (h *hostImpl) setWebhookFailed(failed bool) {
+	h.mu.Lock()
+	h.webhookFailed = failed
+	hwnd := h.hwnd
+	h.mu.Unlock()
+	h.postUpdate(hwnd)
+}
+
+func (h *hostImpl) postUpdate(hwnd windows.HWND) {
 	if hwnd != 0 {
 		_, _, _ = procPostMessageW.Call(uintptr(hwnd), wmUpdate, 0, 0)
 	}
@@ -189,8 +203,15 @@ func (h *hostImpl) setupTray() error {
 		destroyIcon(idle)
 		return fmt.Errorf("busy icon: %w", err)
 	}
+	fail, err := iconFromICO(ErrorICO())
+	if err != nil {
+		destroyIcon(idle)
+		destroyIcon(busy)
+		return fmt.Errorf("error icon: %w", err)
+	}
 	h.idleIcon = idle
 	h.busyIcon = busy
+	h.errorIcon = fail
 	h.taskbarCreated = registerWindowMessage("TaskbarCreated")
 
 	instance, _, _ := procGetModuleHandleW.Call(0)
@@ -234,16 +255,18 @@ func (h *hostImpl) teardownTray() {
 	_ = h.notify(nimDelete)
 	h.mu.Lock()
 	hwnd := h.hwnd
-	idle, busy := h.idleIcon, h.busyIcon
+	idle, busy, fail := h.idleIcon, h.busyIcon, h.errorIcon
 	h.hwnd = 0
 	h.idleIcon = 0
 	h.busyIcon = 0
+	h.errorIcon = 0
 	h.mu.Unlock()
 	if hwnd != 0 {
 		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
 	}
 	destroyIcon(idle)
 	destroyIcon(busy)
+	destroyIcon(fail)
 }
 
 func (h *hostImpl) messageLoop() {
@@ -299,12 +322,15 @@ func (h *hostImpl) notify(action uint32) error {
 	nid.ID = 1
 	nid.Flags = nifMessage | nifIcon | nifTip
 	nid.CallbackMessage = wmTray
-	if h.snap.Busy {
+	switch {
+	case h.webhookFailed:
+		nid.Icon = h.errorIcon
+	case h.snap.Busy:
 		nid.Icon = h.busyIcon
-	} else {
+	default:
 		nid.Icon = h.idleIcon
 	}
-	setTip(&nid, Tooltip(h.snap))
+	setTip(&nid, TooltipAlert(h.snap, h.webhookFailed))
 	r, _, err := procShellNotifyIconW.Call(uintptr(action), uintptr(unsafe.Pointer(&nid)))
 	if r == 0 {
 		return err
@@ -328,6 +354,7 @@ func setTip(nid *notifyIconData, tip string) {
 func (h *hostImpl) showMenu(hwnd windows.HWND) {
 	h.mu.Lock()
 	s := h.snap
+	webhookFailed := h.webhookFailed
 	h.mu.Unlock()
 
 	menu, _, err := procCreatePopupMenu.Call()
@@ -344,6 +371,9 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 		appendGray(menu, "Sources: "+joinSources(s.Sources))
 	} else {
 		appendGray(menu, "Sources: (none)")
+	}
+	if webhookFailed {
+		appendGray(menu, "Webhook: failed")
 	}
 	h.mu.Lock()
 	actions := h.actions

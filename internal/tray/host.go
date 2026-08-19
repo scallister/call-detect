@@ -30,6 +30,11 @@ func (h *Host) Update(s state.Snapshot) {
 	h.impl.update(s)
 }
 
+// SetWebhookFailed turns the tray icon red when the last webhook POST failed.
+func (h *Host) SetWebhookFailed(failed bool) {
+	h.impl.setWebhookFailed(failed)
+}
+
 // Run shows the icon and blocks until Quit. ready always starts, even if
 // the notification icon cannot be created, so detection and webhooks still run.
 func (h *Host) Run(ready func()) {

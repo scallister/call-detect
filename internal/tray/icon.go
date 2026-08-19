@@ -17,6 +17,11 @@ func BusyICO() []byte {
 	return circleICO(0x2E, 0xCC, 0x40)
 }
 
+// ErrorICO is a red circle shown when the last webhook POST failed.
+func ErrorICO() []byte {
+	return circleICO(0xE0, 0x3C, 0x31)
+}
+
 func circleICO(r, g, b byte) []byte {
 	xor := make([]byte, iconSize*iconSize*4)
 	cx, cy := float64(iconSize)/2-0.5, float64(iconSize)/2-0.5

@@ -60,6 +60,11 @@ func (c *Client) url() string {
 	return c.URL
 }
 
+// Enabled reports whether a destination URL is set.
+func (c *Client) Enabled() bool {
+	return c.enabled()
+}
+
 func (c *Client) enabled() bool {
 	return c.url() != ""
 }

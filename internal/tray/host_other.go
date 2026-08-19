@@ -24,6 +24,8 @@ func (h *hostImpl) setActions(a Actions) {
 
 func (h *hostImpl) update(state.Snapshot) {}
 
+func (h *hostImpl) setWebhookFailed(bool) {}
+
 func (h *hostImpl) run(ready func()) {
 	startReady(ready)
 	<-h.done

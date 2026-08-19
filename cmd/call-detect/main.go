@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/scallister/call-detect/internal/appdir"
@@ -109,6 +110,9 @@ func run(args []string) int {
 
 	host := tray.New()
 	hook := &webhook.Client{URL: cfg.WebhookURL}
+	var lastMu sync.Mutex
+	var lastSnap state.Snapshot
+	var haveSnap bool
 	host.SetActions(tray.Actions{
 		AutostartOn: install.AutostartEnabled,
 		Install: func() error {
@@ -127,9 +131,23 @@ func run(args []string) int {
 			hook.SetURL(url)
 			if url == "" {
 				log.Print("webhook disabled")
-			} else {
-				log.Print("webhook enabled")
+				host.SetWebhookFailed(false)
+				return nil
 			}
+			log.Print("webhook enabled")
+			lastMu.Lock()
+			s, ok := lastSnap, haveSnap
+			lastMu.Unlock()
+			if !ok {
+				host.SetWebhookFailed(false)
+				return nil
+			}
+			if err := hook.Post(ctx, s); err != nil {
+				log.Printf("webhook: %v", err)
+				host.SetWebhookFailed(true)
+				return nil
+			}
+			host.SetWebhookFailed(false)
 			return nil
 		},
 	})
@@ -143,8 +161,15 @@ func run(args []string) int {
 		StatusPath: appdir.StatusPath(dir),
 		Webhook:    hook,
 		OnUpdate: func(s state.Snapshot, _ bool) {
+			lastMu.Lock()
+			lastSnap = s
+			haveSnap = true
+			lastMu.Unlock()
 			host.Update(s)
 			log.Print(tray.Tooltip(s))
+		},
+		OnWebhook: func(err error) {
+			host.SetWebhookFailed(err != nil)
 		},
 	}
 
