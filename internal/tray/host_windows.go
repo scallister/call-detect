@@ -529,31 +529,6 @@ func appendGray(menu uintptr, text string) {
 	_, _, _ = procAppendMenuW.Call(menu, mfString|mfGrayed|mfDisabled, 0, uintptr(unsafe.Pointer(p)))
 }
 
-func statusLine(s state.Snapshot) string {
-	if s.Busy {
-		return "On a call"
-	}
-	return "Idle"
-}
-
-func boolLine(name string, on bool) string {
-	if on {
-		return name + ": yes"
-	}
-	return name + ": no"
-}
-
-func joinSources(src []string) string {
-	out := ""
-	for i, s := range src {
-		if i > 0 {
-			out += ", "
-		}
-		out += s
-	}
-	return out
-}
-
 func iconFromICO(ico []byte) (windows.Handle, error) {
 	if len(ico) < 22 {
 		return 0, syscall.EINVAL

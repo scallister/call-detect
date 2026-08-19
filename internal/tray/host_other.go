@@ -1,4 +1,4 @@
-//go:build !windows
+//go:build !windows && !linux && !darwin
 
 package tray
 
@@ -36,8 +36,14 @@ func (h *hostImpl) quit() {
 	h.once.Do(func() { close(h.done) })
 }
 
-// Confirm is only implemented on Windows.
+// Confirm is only implemented on Windows, macOS, and Linux.
 func Confirm(string, string) bool { return false }
 
-// Alert is only implemented on Windows.
+// Alert is only implemented on Windows, macOS, and Linux.
 func Alert(string, bool) {}
+
+func PromptWebhook(string) (string, bool) { return "", false }
+
+func openBrowser(url string) error {
+	return errNoBrowser
+}
