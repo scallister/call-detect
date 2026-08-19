@@ -36,21 +36,13 @@ That link always follows the newest [release](https://github.com/scallister/call
 
 Windows SmartScreen may warn that the file is unrecognized. Release builds are unsigned. Choose **More info → Run anyway**, or [build it](#build) yourself.
 
-Then from a terminal:
+Double-click `call-detect.exe` to start it. When it is running, **right-click the call-detect icon on the taskbar** (notification area, near the clock) and choose **Install (start at logon)**. That copies the program to `%LOCALAPPDATA%\call-detect\`, writes a sample `config.yaml` if you do not already have one, and starts it again at logon for the current user. No administrator rights.
 
-```text
-call-detect.exe --install
-```
+**Uninstall (remove logon startup)** on the same menu turns auto-run off. The icon keeps running until you choose **Quit**. Files stay in `%LOCALAPPDATA%\call-detect\` until you delete them.
 
-That copies the program to `%LOCALAPPDATA%\call-detect\`, writes a sample `config.yaml` if you do not already have one, starts it now, and runs it again at logon for the current user. No administrator rights.
+If call-detect is already installed, running a newer downloaded `call-detect.exe` (double-click or from a terminal, without flags) asks whether to replace the installed copy and restart it.
 
-If call-detect is already installed, running a newer downloaded `call-detect.exe` (double-click or from a terminal, without flags) asks whether to replace the installed copy and restart it. `--install` does the same replacement without asking.
-
-```text
-call-detect.exe --uninstall
-```
-
-Removes the logon entry. Files stay in `%LOCALAPPDATA%\call-detect\` until you delete them. Use **Quit** on the tray icon to stop a running copy. An update will ask the running copy to exit so the file can be replaced.
+The same install and uninstall are available from a terminal (`--install` / `--uninstall`). `--install` replaces the installed copy without asking. An update will ask the running copy to exit so the file can be replaced.
 
 ### Flags
 
@@ -86,7 +78,7 @@ The latest snapshot is also written to `%LOCALAPPDATA%\call-detect\status.json`.
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 
-Right-click for microphone / webcam / sources, **Install** / **Uninstall** (logon startup), **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes, and comes back if Explorer restarts.
+Right-click the icon for microphone / webcam / sources, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. Install and Uninstall are the usual way to add or remove auto-run; see [Install](#install). The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes, and comes back if Explorer restarts.
 
 ## Webhook
 
