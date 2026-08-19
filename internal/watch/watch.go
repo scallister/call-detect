@@ -40,7 +40,9 @@ type Options struct {
 	StatusPath string
 	Webhook    *webhook.Client
 	OnUpdate   func(s state.Snapshot, boolsChanged bool)
-	Log        *log.Logger
+	// OnWebhook is called after a POST attempt. err is nil on success.
+	OnWebhook func(err error)
+	Log       *log.Logger
 }
 
 // Run polls until ctx is cancelled.
@@ -64,6 +66,10 @@ func Run(ctx context.Context, opt Options) error {
 	defer tick.Stop()
 	loggedAudioErr := false
 	loggedCameraErr := false
+	var lastPublished state.Snapshot
+	havePublished := false
+	webhookBad := false
+	var nextRetry time.Time
 
 	step := func(now time.Time) {
 		micEnt, err := opt.Store.List(consentstore.CapabilityMicrophone)
@@ -96,20 +102,33 @@ func Run(ctx context.Context, opt Options) error {
 		}
 		raw := detect.Confirm(mic, cam, audio, camera, now)
 		res := deb.Observe(raw, now)
-		if !res.Changed {
-			return
-		}
-		if opt.StatusPath != "" {
-			if err := status.Write(opt.StatusPath, res.State); err != nil {
-				logger.Printf("status: %v", err)
+		if res.Changed {
+			lastPublished = res.State
+			havePublished = true
+			if opt.StatusPath != "" {
+				if err := status.Write(opt.StatusPath, res.State); err != nil {
+					logger.Printf("status: %v", err)
+				}
 			}
 		}
-		if res.BoolsChanged && opt.Webhook != nil {
-			if err := opt.Webhook.Post(ctx, res.State); err != nil {
-				logger.Printf("webhook: %v", err)
+		if havePublished && opt.Webhook != nil && opt.Webhook.Enabled() {
+			postNow := res.BoolsChanged
+			if !postNow && webhookBad && !now.Before(nextRetry) {
+				postNow = true
+			}
+			if postNow {
+				err = opt.Webhook.Post(ctx, lastPublished)
+				webhookBad = err != nil
+				if err != nil {
+					nextRetry = now.Add(15 * time.Second)
+					logger.Printf("webhook: %v", err)
+				}
+				if opt.OnWebhook != nil {
+					opt.OnWebhook(err)
+				}
 			}
 		}
-		if opt.OnUpdate != nil {
+		if res.Changed && opt.OnUpdate != nil {
 			opt.OnUpdate(res.State, res.BoolsChanged)
 		}
 	}

@@ -171,6 +171,45 @@ func TestRunCameraOnlyWithoutAudio(t *testing.T) {
 	}
 }
 
+func TestRunPostsImmediatelyAndReportsWebhookError(t *testing.T) {
+	t.Parallel()
+	var posts atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		posts.Add(1)
+		w.WriteHeader(http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updates := make(chan state.Snapshot, 8)
+	hooks := make(chan error, 8)
+	go func() {
+		_ = Run(ctx, Options{
+			Store:    &memStore{},
+			Debounce: time.Second,
+			Poll:     20 * time.Millisecond,
+			Webhook:  &webhook.Client{URL: srv.URL, HTTP: srv.Client(), MaxTries: 1},
+			OnUpdate: func(s state.Snapshot, _ bool) { updates <- s },
+			OnWebhook: func(err error) {
+				hooks <- err
+			},
+		})
+	}()
+	_ = waitSnap(t, updates, 500*time.Millisecond)
+	select {
+	case err := <-hooks:
+		if err == nil {
+			t.Fatal("expected webhook error")
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("no webhook callback")
+	}
+	if posts.Load() < 1 {
+		t.Fatal("expected launch POST")
+	}
+}
+
 func TestRunAuthoritativeCaptureWithoutConsent(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithCancel(context.Background())

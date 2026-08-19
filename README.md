@@ -95,12 +95,13 @@ Windows only. On macOS and Linux, call-detect runs in the background and updates
 
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
+- **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
 Right-click the icon for microphone / webcam / sources, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. Install and Uninstall are the usual way to add or remove auto-run; see [Install](#install). The webhook dialog shows an example JSON payload next to the URL field, writes `config.yaml`, and applies immediately. The icon updates on its own when state changes, and comes back if Explorer restarts.
 
 ## Webhook
 
-On each debounced change to `call`, `microphone`, or `webcam`, call-detect POSTs `Content-Type: application/json`. **Set webhook URL...** shows this same example next to the URL field:
+call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. A failed POST turns the Windows icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
 
 ```json
 {

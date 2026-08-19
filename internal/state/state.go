@@ -83,8 +83,8 @@ type Debouncer struct {
 	ready        bool
 }
 
-// Observe applies one raw reading. The published state is unchanged until
-// Delay elapses with a stable difference in the three bools.
+// Observe applies one raw reading. The first reading is published immediately
+// so launch can POST the current state. Later bool changes wait for Delay.
 func (d *Debouncer) Observe(raw Snapshot, now time.Time) Result {
 	if d.Delay < 0 {
 		d.Delay = 0
@@ -95,7 +95,10 @@ func (d *Debouncer) Observe(raw Snapshot, now time.Time) Result {
 	}
 
 	if !d.ready {
-		return d.commitPending(raw, now)
+		d.ready = true
+		d.current = raw
+		d.current.UpdatedAt = now.UTC()
+		return Result{State: d.current, Changed: true, BoolsChanged: true}
 	}
 
 	if EqualBools(raw, d.current) {

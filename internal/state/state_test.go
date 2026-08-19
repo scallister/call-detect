@@ -43,12 +43,9 @@ func TestDebouncerFlickerIgnored(t *testing.T) {
 	t0 := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 
 	idle := Snapshot{Sources: []string{}}
-	if r := d.Observe(idle, t0); r.Changed {
-		t.Fatalf("first tick should wait: %+v", r)
-	}
-	first := d.Observe(idle, t0.Add(2*time.Second))
-	if !first.BoolsChanged || first.State.Busy {
-		t.Fatalf("first: %+v", first)
+	first := d.Observe(idle, t0)
+	if !first.Changed || !first.BoolsChanged || first.State.Busy {
+		t.Fatalf("first should publish immediately: %+v", first)
 	}
 
 	r1 := d.Observe(Snapshot{Busy: true, Microphone: true, Sources: []string{"a"}}, t0.Add(3*time.Second))

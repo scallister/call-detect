@@ -22,8 +22,8 @@ func TestCircleICO(t *testing.T) {
 	if int(off+size) != len(ico) {
 		t.Fatalf("offset %d size %d len %d", off, size, len(ico))
 	}
-	if len(IdleICO()) != len(ico) {
-		t.Fatal("idle/busy size mismatch")
+	if len(IdleICO()) != len(ico) || len(ErrorICO()) != len(ico) {
+		t.Fatal("idle/busy/error size mismatch")
 	}
 }
 
