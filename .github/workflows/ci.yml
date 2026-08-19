@@ -29,10 +29,20 @@ jobs:
           fi
       - name: Build Windows amd64
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect.exe ./cmd/call-detect
+      - name: Build Linux amd64
+        run: GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-linux-amd64 ./cmd/call-detect
+      - name: Build macOS amd64
+        run: GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-darwin-amd64 ./cmd/call-detect
+      - name: Build macOS arm64
+        run: GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect-darwin-arm64 ./cmd/call-detect
       - uses: actions/upload-artifact@v4
         with:
-          name: call-detect-windows-amd64
-          path: call-detect.exe
+          name: call-detect
+          path: |
+            call-detect.exe
+            call-detect-linux-amd64
+            call-detect-darwin-amd64
+            call-detect-darwin-arm64
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -45,8 +55,18 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.26.6"
-      - name: Build Windows amd64
-        run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${GITHUB_REF_NAME}" -o call-detect.exe ./cmd/call-detect
+      - name: Build
+        run: |
+          ver="${GITHUB_REF_NAME}"
+          flags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${ver}"
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui ${flags}" -o call-detect.exe ./cmd/call-detect
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-linux-amd64 ./cmd/call-detect
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-darwin-amd64 ./cmd/call-detect
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-darwin-arm64 ./cmd/call-detect
       - uses: softprops/action-gh-release@v2
         with:
-          files: call-detect.exe
+          files: |
+            call-detect.exe
+            call-detect-linux-amd64
+            call-detect-darwin-amd64
+            call-detect-darwin-arm64

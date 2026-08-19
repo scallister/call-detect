@@ -2,7 +2,8 @@ package tray
 
 import "github.com/scallister/call-detect/internal/state"
 
-// Host is the notification-area icon. On Windows it owns the message loop.
+// Host is the notification-area icon on Windows. On other OSes it only
+// keeps the process running until Quit.
 type Host struct {
 	impl hostImpl
 }

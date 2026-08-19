@@ -11,11 +11,15 @@ import (
 	"github.com/scallister/call-detect/internal/state"
 )
 
-// Audio is a live WASAPI session snapshot. Err set means the enumerator failed.
+// Audio is a live session snapshot. Err set means the enumerator failed.
 type Audio struct {
 	Capture []string
 	Render  []string
 	Err     error
+	// Authoritative means Capture is ground truth and is not intersected
+	// with ConsentStore (macOS and Linux). Windows leaves this false so
+	// stale ConsentStore rows still need a live capture session.
+	Authoritative bool
 }
 
 // Camera is a live camera-streaming snapshot from the Windows sensor activity
@@ -27,8 +31,9 @@ type Camera struct {
 
 // Confirm builds a snapshot.
 //
-// Microphone: ConsentStore in-use apps that also have an active WASAPI capture
-// session. If audio enumeration failed, ConsentStore is used alone.
+// Microphone: ConsentStore in-use apps that also have an active capture
+// session, unless Audio.Authoritative is set (then Capture is used alone).
+// If audio enumeration failed, ConsentStore is used alone.
 //
 // Webcam: processes currently streaming a camera (sensor activity monitor).
 // That is independent of audio, so a browser preview with no microphone still
@@ -59,6 +64,9 @@ func Confirm(mic, cam []consentstore.Usage, audio Audio, camera Camera, now time
 func confirmMic(mic []consentstore.Usage, audio Audio) []string {
 	if audio.Err != nil {
 		return consentstore.InUseApps(mic)
+	}
+	if audio.Authoritative {
+		return unique(append([]string{}, audio.Capture...))
 	}
 	capture := indexApps(audio.Capture)
 	var apps []string
