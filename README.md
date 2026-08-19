@@ -1,8 +1,8 @@
 # call-detect
 
-A small Windows background program that notices when an app is using the **microphone** or **webcam**, shows that in the notification area, and can POST a JSON webhook when the state changes.
+A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. On Windows it also shows a notification-area icon.
 
-It does not talk to Discord, Zoom, or any other app by name. It reads Windows privacy records, live audio capture sessions, and camera streaming activity, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
+It does not talk to Discord, Zoom, or any other app by name. It reads OS device-in-use signals, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
 
 ## What it reports
 
@@ -20,7 +20,7 @@ State is debounced for about two seconds so a brief device grab does not flicker
 
 ## Privacy
 
-call-detect only **reads** Windows ConsentStore timestamps, audio session metadata, and camera sensor-activity process names. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process names such as `Discord.exe`).
+call-detect only **reads** OS “device in use” metadata (see [How detection works](#how-detection-works)). It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process or device names such as `Discord.exe`).
 
 ## Disclaimer
 
@@ -28,21 +28,31 @@ This software is provided **as is**, without warranty of any kind. You download,
 
 ## Install
 
-Download the latest `call-detect.exe`:
+Download a binary from the newest [release](https://github.com/scallister/call-detect/releases/latest):
 
-**[call-detect.exe](https://github.com/scallister/call-detect/releases/latest/download/call-detect.exe)**
+| OS | Download |
+|----|----------|
+| Windows amd64 | **[call-detect.exe](https://github.com/scallister/call-detect/releases/latest/download/call-detect.exe)** |
+| Linux amd64 | **[call-detect-linux-amd64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-linux-amd64)** |
+| macOS Apple silicon | **[call-detect-darwin-arm64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-arm64)** |
+| macOS Intel | **[call-detect-darwin-amd64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-amd64)** |
 
-That link always follows the newest [release](https://github.com/scallister/call-detect/releases/latest). Published builds are **Windows amd64** only. There is no arm64 build yet.
+Or [build it](#build). Release builds are unsigned. On Windows, SmartScreen may warn that the file is unrecognized; choose **More info → Run anyway**.
 
-Windows SmartScreen may warn that the file is unrecognized. Release builds are unsigned. Choose **More info → Run anyway**, or [build it](#build) yourself.
+**Windows.** Double-click `call-detect.exe`. When it is running, **right-click the call-detect icon on the taskbar** (notification area, near the clock) and choose **Install (start at logon)**. That copies the program to `%LOCALAPPDATA%\call-detect\` and starts it at logon. **Uninstall (remove logon startup)** turns auto-run off. The icon keeps running until **Quit**. Files stay until you delete them.
 
-Double-click `call-detect.exe` to start it. When it is running, **right-click the call-detect icon on the taskbar** (notification area, near the clock) and choose **Install (start at logon)**. That copies the program to `%LOCALAPPDATA%\call-detect\`, writes a sample `config.yaml` if you do not already have one, and starts it again at logon for the current user. No administrator rights.
+**macOS and Linux.** There is no tray icon yet. Make the file executable, run it, then install auto-run from a terminal:
 
-**Uninstall (remove logon startup)** on the same menu turns auto-run off. The icon keeps running until you choose **Quit**. Files stay in `%LOCALAPPDATA%\call-detect\` until you delete them.
+```text
+chmod +x call-detect-linux-amd64   # or the darwin build
+./call-detect-linux-amd64 --install
+```
 
-If call-detect is already installed, running a newer downloaded `call-detect.exe` (double-click or from a terminal, without flags) asks whether to replace the installed copy and restart it.
+`--install` copies the binary into the user data directory, writes a sample `config.yaml` if needed, and enables logon autostart (LaunchAgent on macOS, XDG autostart on Linux). `--uninstall` removes autostart. Files stay until you delete them. Ctrl+C (or SIGTERM) stops a running copy.
 
-The same install and uninstall are available from a terminal (`--install` / `--uninstall`). `--install` replaces the installed copy without asking. An update will ask the running copy to exit so the file can be replaced.
+No administrator rights on any OS.
+
+If call-detect is already installed on Windows, running a newer downloaded `call-detect.exe` asks whether to replace the installed copy. `--install` replaces without asking.
 
 ### Flags
 
@@ -55,7 +65,13 @@ The same install and uninstall are available from a terminal (`--install` / `--u
 | `--webhook-url` | Override the webhook destination |
 | `--config` | Path to `config.yaml` |
 
-Logs are always appended to `%LOCALAPPDATA%\call-detect\call-detect.log`.
+Logs are always appended to `call-detect.log` in the user data directory:
+
+| OS | Directory |
+|----|-----------|
+| Windows | `%LOCALAPPDATA%\call-detect\` |
+| macOS | `~/Library/Application Support/call-detect/` |
+| Linux | `~/.local/share/call-detect/` (`$XDG_DATA_HOME/call-detect` if set) |
 
 ## Configuration
 
@@ -63,7 +79,7 @@ Webhook URL, first match wins:
 
 1. `--webhook-url`
 2. Environment variable `CALL_DETECT_WEBHOOK_URL`
-3. `webhook_url` in `%LOCALAPPDATA%\call-detect\config.yaml`
+3. `webhook_url` in `config.yaml` in the user data directory (see [Install](#install))
 
 ```yaml
 # webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"
@@ -71,9 +87,11 @@ Webhook URL, first match wins:
 
 Leave it unset to run locally (tray + `status.json` only).
 
-The latest snapshot is also written to `%LOCALAPPDATA%\call-detect\status.json`.
+The latest snapshot is also written to `status.json` in that directory.
 
 ## Tray icon
+
+Windows only. On macOS and Linux, call-detect runs in the background and updates `status.json` (and the webhook) until you stop it.
 
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
@@ -140,13 +158,15 @@ A second automation can turn a light (or anything else) on when `input_boolean.o
 
 ## Build
 
-Current stable Go. Cross-compile from Linux or macOS:
+Current stable Go. `CGO_ENABLED=0` on every target:
 
 ```text
 GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect.exe ./cmd/call-detect
+GOOS=linux   GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect-linux-amd64 ./cmd/call-detect
+GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/scallister/call-detect/internal/version.Version=v0.0.0" -o call-detect-darwin-arm64 ./cmd/call-detect
 ```
 
-`-H windowsgui` hides the console when the program is started from Explorer. Use `--console` or `--dump` when you want a terminal.
+`-H windowsgui` is Windows-only; it hides the console when the program is started from Explorer. Use `--console` or `--dump` when you want a terminal.
 
 ```text
 go test ./...
@@ -154,17 +174,13 @@ go test ./...
 
 ## How detection works
 
-**Microphone.** Windows stores last-used times under:
+Playback-only audio (music, videos) does not count on any OS. The program must run as the signed-in user.
 
-`HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\microphone`
+**Windows.** Microphone is ConsentStore **and** a live WASAPI capture session (ConsentStore alone stays dirty after many apps leave a call). Webcam is the camera sensor activity monitor. If that monitor cannot start, webcam falls back to ConsentStore plus a capture or render session.
 
-Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. Those keys stay “in use” (`LastUsedTimeStop` is zero) after many apps leave a call. call-detect treats the microphone as in use only when ConsentStore says so **and** that same app has an active WASAPI **capture** session. Playback-only apps (music, videos) never match.
+**macOS.** Microphone is Core Audio devices with input that report “running somewhere.” Webcam is CoreMediaIO devices that report “running somewhere.” `sources` is often the device name rather than the app.
 
-**Webcam.** A video-only page (for example a browser camera test) often has no audio session at all. Webcam state comes from the Windows camera sensor activity monitor: processes that are actually streaming a camera. Idle Discord leftover ConsentStore records do not count.
-
-If the camera monitor cannot start, webcam falls back to ConsentStore plus a capture or render session. If both live sources fail, call-detect uses ConsentStore alone.
-
-The program must run as the signed-in user (not as a Windows service under Local System) so it can read that user’s keys.
+**Linux.** Microphone is PulseAudio/PipeWire capture streams (`pactl` or `pw-dump`; install `pulseaudio-utils` or `pipewire-utils`). Webcam is PipeWire video-input streams, or processes that have a `/dev/video*` device open. Desktop audio stacks (PipeWire) are expected.
 
 ## License
 

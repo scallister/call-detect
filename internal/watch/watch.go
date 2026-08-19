@@ -82,7 +82,7 @@ func Run(ctx context.Context, opt Options) error {
 		if opt.Audio != nil {
 			audio = opt.Audio.Sessions()
 			if audio.Err != nil && !loggedAudioErr {
-				logger.Printf("audio sessions: %v (using ConsentStore only)", audio.Err)
+				logger.Printf("audio sessions: %v", audio.Err)
 				loggedAudioErr = true
 			}
 		}
@@ -90,7 +90,7 @@ func Run(ctx context.Context, opt Options) error {
 		if opt.Camera != nil {
 			camera = opt.Camera.Streaming()
 			if camera.Err != nil && !loggedCameraErr {
-				logger.Printf("camera monitor: %v (confirming webcam via audio sessions)", camera.Err)
+				logger.Printf("camera monitor: %v", camera.Err)
 				loggedCameraErr = true
 			}
 		}

@@ -171,6 +171,26 @@ func TestRunCameraOnlyWithoutAudio(t *testing.T) {
 	}
 }
 
+func TestRunAuthoritativeCaptureWithoutConsent(t *testing.T) {
+	t.Parallel()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	updates := make(chan state.Snapshot, 8)
+	go func() {
+		_ = Run(ctx, Options{
+			Store:    consentstore.None{},
+			Audio:    staticAudio{a: detect.Audio{Capture: []string{"firefox"}, Authoritative: true}},
+			Debounce: 20 * time.Millisecond,
+			Poll:     10 * time.Millisecond,
+			OnUpdate: func(s state.Snapshot, _ bool) { updates <- s },
+		})
+	}()
+	busy := waitBusy(t, updates, true, time.Second)
+	if !busy.Microphone || busy.Webcam || busy.Sources[0] != "firefox" {
+		t.Fatalf("authoritative %+v", busy)
+	}
+}
+
 func waitSnap(t *testing.T, ch <-chan state.Snapshot, d time.Duration) state.Snapshot {
 	t.Helper()
 	select {

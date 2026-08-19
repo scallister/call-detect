@@ -86,6 +86,23 @@ func TestConfirmAudioErrorUsesConsentMicAndCameraStream(t *testing.T) {
 	}
 }
 
+func TestConfirmAuthoritativeCaptureWithoutConsent(t *testing.T) {
+	t.Parallel()
+	now := time.Now()
+	s := Confirm(nil, nil, Audio{Capture: []string{"firefox"}, Authoritative: true}, Camera{}, now)
+	if !s.Busy || !s.Microphone || s.Webcam {
+		t.Fatalf("authoritative capture: %+v", s)
+	}
+	if !slices.Equal(s.Sources, []string{"firefox"}) {
+		t.Fatalf("sources %v", s.Sources)
+	}
+
+	idle := Confirm([]consentstore.Usage{{App: "Discord.exe", InUse: true}}, nil, Audio{Authoritative: true}, Camera{}, now)
+	if idle.Busy || idle.Microphone {
+		t.Fatalf("authoritative empty capture ignores consent: %+v", idle)
+	}
+}
+
 func TestNormApp(t *testing.T) {
 	t.Parallel()
 	if got := normApp(`C:\Users\a\AppData\Local\Discord\Discord.exe`); got != "discord.exe" {

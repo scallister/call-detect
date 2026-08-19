@@ -97,10 +97,16 @@ func WriteSampleConfig(path string) error {
 func Start(exe string) error {
 	cmd := exec.Command(exe)
 	cmd.Dir = filepath.Dir(exe)
+	detach(cmd)
 	return cmd.Start()
 }
 
 // Supported reports whether autostart install is implemented.
 func Supported() bool {
-	return runtime.GOOS == "windows"
+	switch runtime.GOOS {
+	case "windows", "linux", "darwin":
+		return true
+	default:
+		return false
+	}
 }
