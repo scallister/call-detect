@@ -5,6 +5,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"golang.org/x/sys/unix"
 
@@ -26,6 +27,10 @@ func singletonHeld() bool {
 		f.Close()
 		return true
 	}
+	_ = f.Truncate(0)
+	_, _ = f.Seek(0, 0)
+	_, _ = f.WriteString(strconv.Itoa(os.Getpid()) + "\n")
+	_ = f.Sync()
 	lockFile = f
 	return false
 }
