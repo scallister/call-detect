@@ -22,6 +22,10 @@ State is debounced for about two seconds so a brief device grab does not flicker
 
 call-detect only **reads** Windows ConsentStore timestamps, audio session metadata, and camera sensor-activity process names. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process names such as `Discord.exe`).
 
+## Disclaimer
+
+This software is provided **as is**, without warranty of any kind. You download, install, and run it **at your own risk**. The authors are not responsible for missed or false detections, webhook deliveries, or any other damage or loss from using it. See the [MIT License](LICENSE).
+
 ## Install
 
 Download the latest `call-detect.exe`:
@@ -172,4 +176,4 @@ The program must run as the signed-in user (not as a Windows service under Local
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Provided as is; use at your own risk.
