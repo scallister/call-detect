@@ -173,10 +173,20 @@ func run(args []string) int {
 		},
 	}
 
-	watchRemoteQuit(host.Quit)
-	notifyQuit(host.Quit)
+	tray.SetExitHook(func() {
+		cancel()
+		watch.PublishIdle(opt, time.Now())
+	})
+	quit := func() {
+		tray.RunExitHook()
+		host.Quit()
+	}
+	watchRemoteQuit(quit)
+	notifyQuit(quit)
+	watchDone := make(chan struct{})
 	host.Run(func() {
 		go func() {
+			defer close(watchDone)
 			if err := watch.Run(ctx, opt); err != nil {
 				log.Print(err)
 			}
@@ -184,6 +194,11 @@ func run(args []string) int {
 		}()
 	})
 	cancel()
+	select {
+	case <-watchDone:
+	case <-time.After(time.Second):
+	}
+	tray.RunExitHook()
 	return 0
 }
 

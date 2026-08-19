@@ -32,11 +32,13 @@ const (
 	nimModify  = 0x00000001
 	nimDelete  = 0x00000002
 
-	wmDestroy       = 0x0002
-	wmCommand       = 0x0111
-	wmRButtonUp     = 0x0205
-	wmContextMenu   = 0x007B
-	wmLButtonDblClk = 0x0203
+	wmDestroy         = 0x0002
+	wmQueryEndSession = 0x0011
+	wmEndSession      = 0x0016
+	wmCommand         = 0x0111
+	wmRButtonUp       = 0x0205
+	wmContextMenu     = 0x007B
+	wmLButtonDblClk   = 0x0203
 
 	wsOverlapped   = 0x00000000
 	mfString       = 0x00000000
@@ -171,6 +173,7 @@ func (h *hostImpl) postUpdate(hwnd windows.HWND) {
 }
 
 func (h *hostImpl) quit() {
+	RunExitHook()
 	h.once.Do(func() { close(h.done) })
 	h.mu.Lock()
 	hwnd := h.hwnd
@@ -302,10 +305,15 @@ func (h *hostImpl) wndProc(hwnd windows.HWND, msg uint32, wParam, lParam uintptr
 			h.showMenu(hwnd)
 		}
 		return 0
+	case wmQueryEndSession, wmEndSession:
+		RunExitHook()
+		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
+		return 1
 	case wmCommand:
 		h.handleCommand(uint16(wParam), hwnd)
 		return 0
 	case wmDestroy:
+		RunExitHook()
 		_, _, _ = procPostQuitMessage.Call(0)
 		return 0
 	}

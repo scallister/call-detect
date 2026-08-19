@@ -90,6 +90,24 @@ func (c *Client) backoff() time.Duration {
 	return 500 * time.Millisecond
 }
 
+// FinalTimeout is how long PostFinal waits for a single attempt.
+const FinalTimeout = 2 * time.Second
+
+// PostFinal sends s once with a short independent timeout. It does not
+// use a cancelled watch context and does not retry, so it can run on exit.
+func (c *Client) PostFinal(s state.Snapshot) error {
+	if !c.enabled() {
+		return nil
+	}
+	body, err := json.Marshal(s)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), FinalTimeout)
+	defer cancel()
+	return c.doOnce(ctx, body)
+}
+
 // Post sends s as JSON. It retries transient failures a few times.
 func (c *Client) Post(ctx context.Context, s state.Snapshot) error {
 	if !c.enabled() {

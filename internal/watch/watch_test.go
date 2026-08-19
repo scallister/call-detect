@@ -230,6 +230,52 @@ func TestRunAuthoritativeCaptureWithoutConsent(t *testing.T) {
 	}
 }
 
+func TestPublishIdle(t *testing.T) {
+	t.Parallel()
+	var got state.Snapshot
+	var n atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n.Add(1)
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "status.json")
+	now := time.Date(2026, 8, 19, 8, 0, 0, 0, time.UTC)
+	PublishIdle(Options{
+		StatusPath: path,
+		Webhook:    &webhook.Client{URL: srv.URL, HTTP: srv.Client()},
+	}, now)
+	if n.Load() != 1 || got.Busy || got.Microphone || got.Webcam {
+		t.Fatalf("posts=%d payload=%+v", n.Load(), got)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file state.Snapshot
+	if err := json.Unmarshal(raw, &file); err != nil || file.Busy || !file.UpdatedAt.Equal(now) {
+		t.Fatalf("status: %s %v", raw, err)
+	}
+}
+
+func TestPublishIdleNoWebhook(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "status.json")
+	PublishIdle(Options{StatusPath: path}, time.Now())
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var file state.Snapshot
+	if err := json.Unmarshal(raw, &file); err != nil || file.Busy {
+		t.Fatalf("status: %s %v", raw, err)
+	}
+}
+
 func waitSnap(t *testing.T, ch <-chan state.Snapshot, d time.Duration) state.Snapshot {
 	t.Helper()
 	select {
