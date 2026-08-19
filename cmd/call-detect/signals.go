@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"os/signal"
-	"syscall"
 )
 
 func notifyQuit(quit func()) {
@@ -11,9 +10,11 @@ func notifyQuit(quit func()) {
 		return
 	}
 	ch := make(chan os.Signal, 1)
-	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(ch, quitSignals...)
 	go func() {
 		<-ch
+		signal.Stop(ch)
+		signal.Ignore(quitSignals...)
 		quit()
 	}()
 }

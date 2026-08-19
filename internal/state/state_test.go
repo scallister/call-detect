@@ -10,6 +10,22 @@ import (
 	"github.com/scallister/call-detect/internal/consentstore"
 )
 
+func TestIdle(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 19, 8, 0, 0, 0, time.UTC)
+	s := Idle(now)
+	if s.Busy || s.Microphone || s.Webcam || len(s.Sources) != 0 || !s.UpdatedAt.Equal(now) {
+		t.Fatalf("%+v", s)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(raw), `"call":false`) {
+		t.Fatalf("json: %s", raw)
+	}
+}
+
 func TestFromUsages(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 17, 12, 0, 0, 0, time.UTC)

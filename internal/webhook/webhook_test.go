@@ -13,6 +13,36 @@ import (
 	"github.com/scallister/call-detect/internal/state"
 )
 
+func TestPostFinalCallFalse(t *testing.T) {
+	t.Parallel()
+	var got state.Snapshot
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	c := &Client{URL: srv.URL, HTTP: srv.Client(), MaxTries: 3}
+	if err := c.Post(ctx, state.Snapshot{Busy: true}); err == nil {
+		t.Fatal("cancelled Post should fail")
+	}
+	if err := c.PostFinal(state.Idle(time.Date(2026, 8, 19, 8, 0, 0, 0, time.UTC))); err != nil {
+		t.Fatal(err)
+	}
+	if got.Busy || got.Microphone || got.Webcam || got.Sources == nil {
+		t.Fatalf("payload %+v", got)
+	}
+}
+
+func TestPostFinalEmptyURL(t *testing.T) {
+	t.Parallel()
+	if err := (*Client)(nil).PostFinal(state.Idle(time.Now())); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestPostEmptyURL(t *testing.T) {
 	t.Parallel()
 	c := &Client{}

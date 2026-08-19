@@ -98,6 +98,7 @@ func (h *hostImpl) run(ready func()) {
 }
 
 func (h *hostImpl) quit() {
+	RunExitHook()
 	h.once.Do(func() {
 		close(h.done)
 		h.mu.Lock()

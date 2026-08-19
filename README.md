@@ -101,7 +101,7 @@ Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) 
 
 ## Webhook
 
-call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. A failed POST turns the tray icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
+call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. On any exit (Quit, SIGINT/SIGTERM/SIGHUP/SIGQUIT, Windows session end, or a replace-installed restart), the last action is a quick `call: false` POST so lights or helpers turn off during shutdown. A failed POST turns the tray icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
 
 ```json
 {

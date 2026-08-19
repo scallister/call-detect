@@ -27,6 +27,14 @@ const ExampleJSON = `{
   "updated_at": "2026-08-17T12:00:00Z"
 }`
 
+// Idle is a snapshot with call, microphone, and webcam all off.
+func Idle(now time.Time) Snapshot {
+	return Snapshot{
+		Sources:   []string{},
+		UpdatedAt: now.UTC(),
+	}
+}
+
 // FromUsages builds an undebounced snapshot from ConsentStore reads.
 func FromUsages(mic, cam []consentstore.Usage, now time.Time) Snapshot {
 	micOn := consentstore.AnyInUse(mic)
