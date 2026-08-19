@@ -13,26 +13,18 @@ import (
 	"time"
 
 	"github.com/scallister/call-detect/internal/appdir"
-	"github.com/scallister/call-detect/internal/camera"
 	"github.com/scallister/call-detect/internal/config"
 	"github.com/scallister/call-detect/internal/consentstore"
 	"github.com/scallister/call-detect/internal/detect"
 	"github.com/scallister/call-detect/internal/dump"
 	"github.com/scallister/call-detect/internal/install"
+	"github.com/scallister/call-detect/internal/live"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/tray"
 	"github.com/scallister/call-detect/internal/version"
-	"github.com/scallister/call-detect/internal/wasapi"
 	"github.com/scallister/call-detect/internal/watch"
 	"github.com/scallister/call-detect/internal/webhook"
 )
-
-func init() {
-	// Win32 tray windows and GetMessage must stay on the thread that
-	// created the HWND. Without this, Go can move the goroutine after a
-	// syscall and the icon stops responding until the process is restarted.
-	runtime.LockOSThread()
-}
 
 func main() {
 	os.Exit(run(os.Args[1:]))
@@ -69,7 +61,7 @@ func run(args []string) int {
 		return 1
 	}
 
-	logFile, err := setupLog(dir, *consoleFlag || *dumpFlag)
+	logFile, err := setupLog(dir, *consoleFlag || *dumpFlag || runtime.GOOS != "windows")
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
@@ -80,11 +72,6 @@ func run(args []string) int {
 
 	if *dumpFlag {
 		return cmdDump()
-	}
-
-	if runtime.GOOS != "windows" {
-		log.Print("call-detect is a Windows program")
-		return 1
 	}
 
 	if code, done := maybeUpdate(); done {
@@ -112,6 +99,9 @@ func run(args []string) int {
 	log.Printf("config %s", cfgFile)
 	if cfg.WebhookURL != "" {
 		log.Printf("webhook enabled")
+	}
+	if runtime.GOOS != "windows" {
+		log.Print("no tray icon on this OS; status.json is updated until SIGINT/SIGTERM")
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -143,10 +133,11 @@ func run(args []string) int {
 			return nil
 		},
 	})
+	store, audioSrc, cameraSrc := deviceSources()
 	opt := watch.Options{
-		Store:      consentstore.Windows{},
-		Audio:      wasapi.Source{},
-		Camera:     camera.Source{},
+		Store:      store,
+		Audio:      audioSrc,
+		Camera:     cameraSrc,
 		Debounce:   2 * time.Second,
 		Poll:       time.Second,
 		StatusPath: appdir.StatusPath(dir),
@@ -158,6 +149,7 @@ func run(args []string) int {
 	}
 
 	watchRemoteQuit(host.Quit)
+	notifyQuit(host.Quit)
 	host.Run(func() {
 		go func() {
 			if err := watch.Run(ctx, opt); err != nil {
@@ -188,7 +180,7 @@ func setupLog(dir string, alsoStdout bool) (*os.File, error) {
 
 func cmdInstall() int {
 	if !install.Supported() {
-		fmt.Fprintln(os.Stderr, "install is only available on Windows")
+		fmt.Fprintln(os.Stderr, "install is not available on this operating system")
 		return 1
 	}
 	paths, err := install.Apply()
@@ -239,7 +231,7 @@ func maybeUpdate() (int, bool) {
 
 func cmdUninstall() int {
 	if !install.Supported() {
-		fmt.Fprintln(os.Stderr, "uninstall is only available on Windows")
+		fmt.Fprintln(os.Stderr, "uninstall is not available on this operating system")
 		return 1
 	}
 	if err := install.DisableAutostart(); err != nil {
@@ -256,8 +248,15 @@ func cmdUninstall() int {
 	return 0
 }
 
+func deviceSources() (consentstore.Store, watch.AudioSource, watch.CameraSource) {
+	if runtime.GOOS == "windows" {
+		return consentstore.Windows{}, live.Audio{}, live.Camera{}
+	}
+	return consentstore.None{}, live.Audio{}, live.Camera{}
+}
+
 func cmdDump() int {
-	store := consentstore.Windows{}
+	store, audioSrc, cameraSrc := deviceSources()
 	mic, err := store.List(consentstore.CapabilityMicrophone)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -274,8 +273,8 @@ func cmdDump() int {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	audio := wasapi.Source{}.Sessions()
-	camLive := camera.Source{}.Streaming()
+	audio := audioSrc.Sessions()
+	camLive := cameraSrc.Streaming()
 	snap := detect.Confirm(micU, camU, audio, camLive, time.Now())
 	if err := dump.WriteAudio(os.Stdout, audio); err != nil {
 		fmt.Fprintln(os.Stderr, err)
