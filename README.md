@@ -20,7 +20,7 @@ State is debounced for about two seconds so a brief device grab does not flicker
 
 ## Privacy
 
-call-detect only **reads** Windows ConsentStore timestamps, audio session metadata, and camera sensor-activity process names. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default.
+call-detect only **reads** Windows ConsentStore timestamps, audio session metadata, and camera sensor-activity process names. It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process names such as `Discord.exe`).
 
 ## Install
 
@@ -28,7 +28,11 @@ Download the latest `call-detect.exe`:
 
 **[call-detect.exe](https://github.com/scallister/call-detect/releases/latest/download/call-detect.exe)**
 
-That link always follows the newest [release](https://github.com/scallister/call-detect/releases/latest). Or [build it](#build). Then from a terminal:
+That link always follows the newest [release](https://github.com/scallister/call-detect/releases/latest). Published builds are **Windows amd64** only. There is no arm64 build yet.
+
+Windows SmartScreen may warn that the file is unrecognized. Release builds are unsigned. Choose **More info → Run anyway**, or [build it](#build) yourself.
+
+Then from a terminal:
 
 ```text
 call-detect.exe --install
@@ -165,3 +169,7 @@ Packaged apps have their own subkeys. Desktop apps are under `NonPackaged`. Thos
 If the camera monitor cannot start, webcam falls back to ConsentStore plus a capture or render session. If both live sources fail, call-detect uses ConsentStore alone.
 
 The program must run as the signed-in user (not as a Windows service under Local System) so it can read that user’s keys.
+
+## License
+
+[MIT](LICENSE)
