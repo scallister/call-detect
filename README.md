@@ -18,14 +18,6 @@ Speaker or headset **playback** (music, videos) does not count. Game voice chat 
 
 State is debounced for about two seconds so a brief device grab does not flicker the tray icon or the webhook.
 
-## Privacy
-
-call-detect only **reads** OS “device in use” metadata (see [How detection works](#how-detection-works)). It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process or device names such as `Discord.exe`).
-
-## Disclaimer
-
-This software is provided **as is**, without warranty of any kind. You download, install, and run it **at your own risk**. The authors are not responsible for missed or false detections, webhook deliveries, or any other damage or loss from using it. See the [MIT License](LICENSE).
-
 ## Install
 
 Download a binary from the newest [release](https://github.com/scallister/call-detect/releases/latest):
@@ -94,25 +86,17 @@ Same gray / green / red ring on every OS:
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
-Same menu on every OS. Linux is a live XFCE StatusNotifier capture; Windows and macOS use the same ring icons and labels.
+Windows notification area:
 
-| | Idle | On a call |
-|--|------|-----------|
-| **Windows** | ![Windows idle](docs/screenshots/windows-idle.png) | ![Windows on a call](docs/screenshots/windows-on-a-call.png) |
-| **macOS** | ![macOS idle](docs/screenshots/macos-idle.png) | ![macOS on a call](docs/screenshots/macos-on-a-call.png) |
-| **Linux** | ![Linux idle](docs/screenshots/linux-idle.png) | ![Linux on a call](docs/screenshots/linux-on-a-call.png) |
-
-![Tray menu when the webhook POST failed](docs/screenshots/linux-webhook-failed.png)
+| Idle | On a call |
+|------|-----------|
+| ![Windows idle](docs/screenshots/windows-idle.png) | ![Windows on a call](docs/screenshots/windows-on-a-call.png) |
 
 Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, the running **Version**, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **Check for updates...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
 
-![Set webhook URL dialog](docs/screenshots/linux-webhook.png)
+The icon is in the notification area. It comes back if Explorer restarts. The exe includes a version resource (File description, product name, icon) so Windows and antivirus can identify it.
 
-**Linux.** The icon is a [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/). KDE Plasma and many status-notifier hosts show it natively. GNOME needs an AppIndicator / StatusNotifier extension. Dialogs use `zenity` or `kdialog` when present (install one for Install / webhook / self-update prompts). Left-click can also open a zenity list if the host does not show the D-Bus menu.
-
-**macOS.** The icon is a menu-bar extra. Dialogs use the standard AppleScript prompts. The binary is not an `.app` bundle; Gatekeeper may still ask you to open it from Finder the first time.
-
-**Windows.** The icon is in the notification area. It comes back if Explorer restarts. The exe includes a version resource (File description, product name, icon) so Windows and antivirus can identify it.
+Same menu on [macOS](docs/macos.md) and [Linux](docs/linux.md).
 
 ## Antivirus
 
@@ -213,6 +197,14 @@ Playback-only audio (music, videos) does not count on any OS. The program must r
 **macOS.** Microphone is Core Audio devices with input that report “running somewhere.” Webcam is CoreMediaIO devices that report “running somewhere.” `sources` is often the device name rather than the app.
 
 **Linux.** Microphone is PulseAudio/PipeWire capture streams (`pactl` or `pw-dump`; install `pulseaudio-utils` or `pipewire-utils`). Webcam is PipeWire video-input streams, or processes that have a `/dev/video*` device open. Desktop audio stacks (PipeWire) are expected.
+
+## Privacy
+
+call-detect only **reads** OS “device in use” metadata (see [How detection works](#how-detection-works)). It does not open, record, or stream the microphone or camera. There is no telemetry. The webhook is optional and off by default. When you set a URL, each POST is the same JSON as `status.json`, including `sources` (short process or device names such as `Discord.exe`).
+
+## Disclaimer
+
+This software is provided **as is**, without warranty of any kind. You download, install, and run it **at your own risk**. The authors are not responsible for missed or false detections, webhook deliveries, or any other damage or loss from using it. See the [MIT License](LICENSE).
 
 ## License
 
