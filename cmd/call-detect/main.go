@@ -191,7 +191,7 @@ func run(args []string) int {
 	notifyQuit(quit)
 	watchDone := make(chan struct{})
 	host.Run(func() {
-		go tray.OfferRemoteUpdate(false)
+		go tray.OfferRemoteUpdate(ctx, false)
 		go func() {
 			defer close(watchDone)
 			if err := watch.Run(ctx, opt); err != nil {

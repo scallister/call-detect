@@ -93,7 +93,7 @@ func handleMenuID(a Actions, id string, quit func()) {
 		}
 		Alert("Webhook URL saved. Changes apply immediately.", false)
 	case menuUpdate:
-		OfferRemoteUpdate(true)
+		OfferRemoteUpdate(context.Background(), true)
 	case menuGitHub:
 		if err := openBrowser(project.RepoURL); err != nil {
 			Alert(err.Error(), true)
@@ -140,20 +140,30 @@ func statusLines(s state.Snapshot, failed bool) []string {
 
 // OfferRemoteUpdate compares this build to the newest GitHub release.
 // A silent check (interactive=false) only prompts when this is a release
-// build and a newer tag exists.
-func OfferRemoteUpdate(interactive bool) {
+// build and a newer tag exists. Dialogs are skipped if ctx is canceled
+// (Quit), so a late GitHub response cannot outlive the tray.
+func OfferRemoteUpdate(ctx context.Context, interactive bool) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if !interactive && !version.IsRelease(version.Version) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 	latest, err := project.LatestTag(ctx)
 	if err != nil {
+		if ctx.Err() != nil {
+			return
+		}
 		if interactive {
 			Alert(err.Error(), true)
 		} else {
 			log.Printf("update check: %v", err)
 		}
+		return
+	}
+	if ctx.Err() != nil {
 		return
 	}
 	ok, msg := install.RemoteOffer(version.Version, latest)
