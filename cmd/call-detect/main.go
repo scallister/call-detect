@@ -47,14 +47,14 @@ func run(args []string) int {
 		return 2
 	}
 
+	needConsole := *installFlag || *uninstallFlag || *dumpFlag || *consoleFlag || *versionFlag
+	if needConsole {
+		enableConsole(*consoleFlag || *installFlag || *uninstallFlag || *dumpFlag || *versionFlag)
+	}
+
 	if *versionFlag {
 		fmt.Println(version.Display(version.Version))
 		return 0
-	}
-
-	needConsole := *installFlag || *uninstallFlag || *dumpFlag || *consoleFlag
-	if needConsole {
-		enableConsole(*consoleFlag || *installFlag || *uninstallFlag || *dumpFlag)
 	}
 
 	if *installFlag {

@@ -64,6 +64,34 @@ func TestHandleMenuQuit(t *testing.T) {
 	}
 }
 
+func TestOfferRemoteUpdateTimeoutAlerts(t *testing.T) {
+	prevVer := version.Version
+	version.Version = "v0.0.7"
+	t.Cleanup(func() { version.Version = prevVer })
+	prevTimeout := updateCheckTimeout
+	updateCheckTimeout = 30 * time.Millisecond
+	t.Cleanup(func() { updateCheckTimeout = prevTimeout })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	t.Cleanup(srv.Close)
+	prevAPI := project.LatestAPI
+	project.LatestAPI = srv.URL
+	t.Cleanup(func() { project.LatestAPI = prevAPI })
+
+	done := make(chan struct{})
+	go func() {
+		OfferRemoteUpdate(context.Background(), true)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout check did not return")
+	}
+}
+
 func TestOfferRemoteUpdateSkipsDev(t *testing.T) {
 	// Version is "dev" in tests; a silent check must not hit the network.
 	OfferRemoteUpdate(context.Background(), false)

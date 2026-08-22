@@ -145,6 +145,8 @@ func statusLines(s state.Snapshot, failed bool) []string {
 	return lines
 }
 
+var updateCheckTimeout = 8 * time.Second
+
 // OfferRemoteUpdate compares this build to the newest GitHub release.
 // A silent check (interactive=false) only prompts when this is a release
 // build and a newer tag exists. Dialogs are skipped if ctx is canceled
@@ -156,11 +158,12 @@ func OfferRemoteUpdate(ctx context.Context, interactive bool) {
 	if !interactive && !version.IsRelease(version.Version) {
 		return
 	}
-	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	parent := ctx
+	ctx, cancel := context.WithTimeout(parent, updateCheckTimeout)
 	defer cancel()
 	latest, err := project.LatestTag(ctx)
 	if err != nil {
-		if ctx.Err() != nil {
+		if parent.Err() != nil {
 			return
 		}
 		if interactive {
@@ -170,7 +173,7 @@ func OfferRemoteUpdate(ctx context.Context, interactive bool) {
 		}
 		return
 	}
-	if ctx.Err() != nil {
+	if parent.Err() != nil {
 		return
 	}
 	ok, msg := install.RemoteOffer(version.Version, latest)
