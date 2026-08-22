@@ -1,6 +1,6 @@
 # call-detect
 
-A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. All three show a tray / menu-bar icon with the same actions.
+A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. Drive a light, a Home Assistant helper, a Z-Wave switch, or a hallway **MEETING IN PROGRESS** / **ON THE AIR** sign — anything that accepts a webhook. All three OSes show a tray / menu-bar icon with the same actions.
 
 It does not talk to Discord, Zoom, or any other app by name. It reads OS device-in-use signals, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
 
@@ -139,9 +139,11 @@ call-detect POSTs `Content-Type: application/json` on launch (current state) and
 
 Failed deliveries are retried a few times. 4xx responses (except 429) are not retried.
 
+Home Assistant is one destination. The same POST can hit any webhook — n8n, a small HTTP handler, a cloud automation, whatever you already run.
+
 ## Home Assistant
 
-You can drive a helper or a light from that JSON. One simple setup:
+One setup sends the webhook to Home Assistant, which toggles a Z-Wave switch and lights an edge-lit **MEETING IN PROGRESS** or **ON THE AIR** sign. A lamp or an `input_boolean` helper is the same pattern. Steps:
 
 1. **Settings → Devices & services → Helpers** — create a Toggle, for example `On a call` (`input_boolean.on_a_call`).
 2. **Settings → Automations & scenes → Create automation** — add a **Webhook** trigger.
@@ -179,7 +181,7 @@ action:
           entity_id: input_boolean.on_a_call
 ```
 
-A second automation can turn a light (or anything else) on when `input_boolean.on_a_call` is on.
+A second automation can turn a light, a Z-Wave switch, or anything else on when `input_boolean.on_a_call` is on.
 
 ## Build
 
