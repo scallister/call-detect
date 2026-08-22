@@ -102,3 +102,37 @@ func TestOfferRemoteUpdateHonorsCancel(t *testing.T) {
 		t.Fatal("did not return after cancel")
 	}
 }
+
+func TestHandleMenuUpdateHonorsCancel(t *testing.T) {
+	prevVer := version.Version
+	version.Version = "v0.0.7"
+	t.Cleanup(func() { version.Version = prevVer })
+
+	started := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+	}))
+	t.Cleanup(srv.Close)
+	prevAPI := project.LatestAPI
+	project.LatestAPI = srv.URL
+	t.Cleanup(func() { project.LatestAPI = prevAPI })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		handleMenuID(Actions{Context: ctx}, menuUpdate, nil)
+		close(done)
+	}()
+	select {
+	case <-started:
+	case <-time.After(time.Second):
+		t.Fatal("server was not reached")
+	}
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("menu update did not return after cancel")
+	}
+}

@@ -93,7 +93,7 @@ func handleMenuID(a Actions, id string, quit func()) {
 		}
 		Alert("Webhook URL saved. Changes apply immediately.", false)
 	case menuUpdate:
-		OfferRemoteUpdate(context.Background(), true)
+		OfferRemoteUpdate(a.updateContext(), true)
 	case menuGitHub:
 		if err := openBrowser(project.RepoURL); err != nil {
 			Alert(err.Error(), true)
@@ -103,6 +103,13 @@ func handleMenuID(a Actions, id string, quit func()) {
 			quit()
 		}
 	}
+}
+
+func (a Actions) updateContext() context.Context {
+	if a.Context != nil {
+		return a.Context
+	}
+	return context.Background()
 }
 
 func statusLine(s state.Snapshot) string {

@@ -118,6 +118,7 @@ func run(args []string) int {
 	var lastSnap state.Snapshot
 	var haveSnap bool
 	host.SetActions(tray.Actions{
+		Context:     ctx,
 		AutostartOn: install.AutostartEnabled,
 		Install: func() error {
 			_, err := install.Apply()
