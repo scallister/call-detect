@@ -1,6 +1,14 @@
 # call-detect
 
-A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. Drive a light, a Home Assistant helper, a Z-Wave switch, or a hallway **MEETING IN PROGRESS** / **ON THE AIR** sign — anything that accepts a webhook. All three OSes show a tray / menu-bar icon with the same actions.
+This sits in the Windows taskbar. When you join a call, the ring turns green and can turn on a hallway sign.
+
+![call-detect on a call in the Windows taskbar](docs/screenshots/windows-on-a-call.png)
+
+| MEETING IN PROGRESS | ON THE AIR |
+|---------------------|------------|
+| ![MEETING IN PROGRESS sign](docs/screenshots/meeting_in_progress.jpg) | ![ON THE AIR sign](docs/screenshots/on_the_air.jpg) |
+
+A small background program for **Windows**, **macOS**, and **Linux** that notices when an app is using the **microphone** or **webcam** and can POST a JSON webhook when the state changes. Drive a light, a Home Assistant helper, a Z-Wave switch, or signs like the ones above — anything that accepts a webhook. All three OSes show a tray / menu-bar icon with the same actions.
 
 It does not talk to Discord, Zoom, or any other app by name. It reads OS device-in-use signals, so it works with current and future programs — including a browser preview that uses the webcam with no microphone.
 
@@ -129,13 +137,7 @@ Home Assistant is one destination. The same POST can hit any webhook — n8n, a 
 
 ## Home Assistant
 
-One setup sends the webhook to Home Assistant, which toggles a Z-Wave switch and lights an edge-lit sign. A lamp or an `input_boolean` helper is the same pattern.
-
-| MEETING IN PROGRESS | ON THE AIR |
-|---------------------|------------|
-| ![MEETING IN PROGRESS sign](docs/screenshots/meeting_in_progress.jpg) | ![ON THE AIR sign](docs/screenshots/on_the_air.jpg) |
-
-Steps:
+One setup sends the webhook to Home Assistant, which toggles a Z-Wave switch and lights those signs. A lamp or an `input_boolean` helper is the same pattern. Steps:
 
 1. **Settings → Devices & services → Helpers** — create a Toggle, for example `On a call` (`input_boolean.on_a_call`).
 2. **Settings → Automations & scenes → Create automation** — add a **Webhook** trigger.
