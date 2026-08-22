@@ -108,7 +108,6 @@ If Bitdefender removes or blocks it:
 
 1. Restore the file from **Quarantine** if it is already there.
 2. Add exclusions for the downloaded `call-detect.exe` and `%LOCALAPPDATA%\call-detect\`.
-3. [Report a false positive to Bitdefender Labs](https://www.bitdefender.com/consumer/support/answer/29358/) so the detection can be cleared for others.
 
 ## Webhook
 
