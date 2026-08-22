@@ -123,6 +123,8 @@ If Bitdefender removes or blocks it:
 1. Restore the file from **Quarantine** if it is already there.
 2. Add exclusions for the downloaded `call-detect.exe` and `%LOCALAPPDATA%\call-detect\`.
 
+You are also welcome to [build](#build) from this source and run that binary instead of a release download.
+
 ## Webhook
 
 call-detect POSTs `Content-Type: application/json` on launch (current state) and on each later debounced change to `call`, `microphone`, or `webcam`. Setting a webhook URL from the tray also POSTs the current state. On any exit (Quit, SIGINT/SIGTERM/SIGHUP/SIGQUIT, Windows session end, or a replace-installed restart), the last action is a quick `call: false` POST so lights or helpers turn off during shutdown. A failed POST turns the tray icon red and is retried about every 15 seconds. **Set webhook URL...** shows this same example next to the URL field:
