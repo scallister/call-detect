@@ -25,6 +25,7 @@ const (
 	tagWebhook   = 3
 	tagGitHub    = 4
 	tagQuit      = 5
+	tagUpdate    = 6
 )
 
 type nsSize struct {
@@ -268,6 +269,8 @@ func tagFor(id string) int {
 		return tagUninstall
 	case menuWebhook:
 		return tagWebhook
+	case menuUpdate:
+		return tagUpdate
 	case menuGitHub:
 		return tagGitHub
 	case menuQuit:
@@ -285,6 +288,8 @@ func idForTag(tag int) string {
 		return menuUninstall
 	case tagWebhook:
 		return menuWebhook
+	case tagUpdate:
+		return menuUpdate
 	case tagGitHub:
 		return menuGitHub
 	case tagQuit:

@@ -38,7 +38,7 @@ Download a binary from the newest [release](https://github.com/scallister/call-d
 | macOS Apple silicon | **[call-detect-darwin-arm64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-arm64)** |
 | macOS Intel | **[call-detect-darwin-amd64](https://github.com/scallister/call-detect/releases/latest/download/call-detect-darwin-amd64)** |
 
-Or [build it](#build). Release builds are unsigned. On Windows, SmartScreen may warn that the file is unrecognized; choose **More info → Run anyway**.
+Or [build it](#build). Release builds are unsigned. On Windows, SmartScreen may warn that the file is unrecognized; choose **More info → Run anyway**. Some antivirus products (including Bitdefender) also false-flag the exe because it is a new unsigned program that copies itself into your user folder and starts at logon. See [Antivirus](#antivirus).
 
 Make the file executable on macOS/Linux (`chmod +x …`), then run it. When it is running, use the tray / menu-bar icon and choose **Install (start at logon)**. That copies the program into the user data directory and starts it at logon. **Uninstall (remove logon startup)** turns auto-run off. The icon keeps running until **Quit**. Files stay until you delete them.
 
@@ -46,7 +46,7 @@ Make the file executable on macOS/Linux (`chmod +x …`), then run it. When it i
 
 No administrator rights on any OS.
 
-If call-detect is already installed, running a newer downloaded binary asks whether to replace the installed copy (Yes/No dialog). `--install` replaces without asking.
+If call-detect is already installed, running a newer downloaded binary asks whether to replace the installed copy (Yes/No dialog). `--install` replaces without asking. A release build also checks GitHub for a newer tag at launch and from **Check for updates...** in the tray menu; that prompt opens the latest-release page rather than replacing the file itself.
 
 ### Flags
 
@@ -58,6 +58,7 @@ If call-detect is already installed, running a newer downloaded binary asks whet
 | `--console` | Also write logs to a console window |
 | `--webhook-url` | Override the webhook destination |
 | `--config` | Path to `config.yaml` |
+| `--version` | Print the build version and exit |
 
 Logs are always appended to `call-detect.log` in the user data directory:
 
@@ -91,13 +92,22 @@ Same gray / green / red ring on every OS:
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
-Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
+Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, the running **Version**, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **Check for updates...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
 
 **Linux.** The icon is a [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/). KDE Plasma and many status-notifier hosts show it natively. GNOME needs an AppIndicator / StatusNotifier extension. Dialogs use `zenity` or `kdialog` when present (install one for Install / webhook / self-update prompts). Left-click can also open a zenity list if the host does not show the D-Bus menu.
 
 **macOS.** The icon is a menu-bar extra. Dialogs use the standard AppleScript prompts. The binary is not an `.app` bundle; Gatekeeper may still ask you to open it from Finder the first time.
 
-**Windows.** The icon is in the notification area. It comes back if Explorer restarts.
+**Windows.** The icon is in the notification area. It comes back if Explorer restarts. The exe includes a version resource (File description, product name, icon) so Windows and antivirus can identify it.
+
+## Antivirus
+
+Release builds are not code-signed. Windows Defender SmartScreen and some antivirus products — Bitdefender in particular — may quarantine `call-detect.exe` on first run or when you choose **Install**. That is a false positive: the program only reads OS “device in use” metadata, writes files under the user data directory, and optionally POSTs the webhook you configure.
+
+If Bitdefender removes or blocks it:
+
+1. Restore the file from **Quarantine** if it is already there.
+2. Add exclusions for the downloaded `call-detect.exe` and `%LOCALAPPDATA%\call-detect\`.
 
 ## Webhook
 
@@ -169,6 +179,8 @@ GOOS=darwin  GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-s -w -X github.com/s
 ```
 
 `-H windowsgui` is Windows-only; it hides the console when the program is started from Explorer. Use `--console` or `--dump` when you want a terminal.
+
+Windows CI/release builds also run `go run ./cmd/winres -version <tag> -o cmd/call-detect/rsrc_windows_amd64.syso` first so the exe has a VERSIONINFO resource, asInvoker manifest, and tray icon. `go generate ./cmd/call-detect` does the same for a `dev` build.
 
 ```text
 go test ./...

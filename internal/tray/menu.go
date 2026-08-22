@@ -1,16 +1,22 @@
 package tray
 
 import (
+	"context"
+	"log"
 	"strings"
+	"time"
 
+	"github.com/scallister/call-detect/internal/install"
 	"github.com/scallister/call-detect/internal/project"
 	"github.com/scallister/call-detect/internal/state"
+	"github.com/scallister/call-detect/internal/version"
 )
 
 const (
 	menuInstall   = "install"
 	menuUninstall = "uninstall"
 	menuWebhook   = "webhook"
+	menuUpdate    = "update"
 	menuGitHub    = "github"
 	menuQuit      = "quit"
 )
@@ -39,6 +45,7 @@ func actionChoices(a Actions) []menuChoice {
 	if a.SetWebhookURL != nil {
 		out = append(out, menuChoice{menuWebhook, "Set webhook URL..."})
 	}
+	out = append(out, menuChoice{menuUpdate, "Check for updates..."})
 	out = append(out, menuChoice{menuGitHub, "GitHub..."})
 	out = append(out, menuChoice{menuQuit, "Quit"})
 	return out
@@ -85,6 +92,8 @@ func handleMenuID(a Actions, id string, quit func()) {
 			return
 		}
 		Alert("Webhook URL saved. Changes apply immediately.", false)
+	case menuUpdate:
+		OfferRemoteUpdate(a.updateContext(), true)
 	case menuGitHub:
 		if err := openBrowser(project.RepoURL); err != nil {
 			Alert(err.Error(), true)
@@ -94,6 +103,13 @@ func handleMenuID(a Actions, id string, quit func()) {
 			quit()
 		}
 	}
+}
+
+func (a Actions) updateContext() context.Context {
+	if a.Context != nil {
+		return a.Context
+	}
+	return context.Background()
 }
 
 func statusLine(s state.Snapshot) string {
@@ -125,5 +141,52 @@ func statusLines(s state.Snapshot, failed bool) []string {
 	} else {
 		lines = append(lines, "Sources: (none)")
 	}
+	lines = append(lines, "Version: "+version.Display(version.Version))
 	return lines
+}
+
+var updateCheckTimeout = 8 * time.Second
+
+// OfferRemoteUpdate compares this build to the newest GitHub release.
+// A silent check (interactive=false) only prompts when this is a release
+// build and a newer tag exists. Dialogs are skipped if ctx is canceled
+// (Quit), so a late GitHub response cannot outlive the tray.
+func OfferRemoteUpdate(ctx context.Context, interactive bool) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if !interactive && !version.IsRelease(version.Version) {
+		return
+	}
+	parent := ctx
+	ctx, cancel := context.WithTimeout(parent, updateCheckTimeout)
+	defer cancel()
+	latest, err := project.LatestTag(ctx)
+	if err != nil {
+		if parent.Err() != nil {
+			return
+		}
+		if interactive {
+			Alert(err.Error(), true)
+		} else {
+			log.Printf("update check: %v", err)
+		}
+		return
+	}
+	if parent.Err() != nil {
+		return
+	}
+	ok, msg := install.RemoteOffer(version.Version, latest)
+	if !ok {
+		if interactive {
+			Alert("call-detect "+version.Display(version.Version)+" is the latest release.", false)
+		}
+		return
+	}
+	if !Confirm("call-detect", msg) {
+		return
+	}
+	if err := openBrowser(project.LatestReleaseURL); err != nil {
+		Alert(err.Error(), true)
+	}
 }

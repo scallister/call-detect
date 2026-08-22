@@ -55,14 +55,43 @@ func Replace(dest string) error {
 	if self, err := os.Executable(); err == nil && sameFile(self, dest) {
 		return WriteInstalledVersion(filepath.Dir(dest), version.Version)
 	}
-	SignalQuit()
-	if err := waitUnlocked(dest, 15*time.Second); err != nil {
-		return err
+	if fileExists(dest) {
+		SignalQuit()
+		if err := waitUnlocked(dest, 15*time.Second); err != nil {
+			return err
+		}
 	}
 	if err := CopyExecutable(dest); err != nil {
 		return err
 	}
 	return WriteInstalledVersion(filepath.Dir(dest), version.Version)
+}
+
+// RemoteOffer reports whether latest is newer than current, and the dialog text.
+func RemoteOffer(current, latest string) (bool, string) {
+	if !version.Newer(latest, current) {
+		return false, ""
+	}
+	return true, fmt.Sprintf("This is call-detect %s. Version %s is available.\n\nOpen the download page?",
+		version.Display(current), version.Display(latest))
+}
+
+// SameFile reports whether two paths point at the same file.
+func SameFile(a, b string) bool {
+	return sameFile(a, b)
+}
+
+// RunningFromInstall reports whether this process is the installed copy.
+func RunningFromInstall() bool {
+	self, err := os.Executable()
+	if err != nil {
+		return false
+	}
+	dir, err := appdir.Dir()
+	if err != nil {
+		return false
+	}
+	return sameFile(self, appdir.ExePath(dir))
 }
 
 func fileExists(path string) bool {

@@ -12,7 +12,6 @@ import (
 
 	"golang.org/x/sys/windows"
 
-	"github.com/scallister/call-detect/internal/project"
 	"github.com/scallister/call-detect/internal/state"
 )
 
@@ -24,6 +23,7 @@ const (
 	idUninstall = 1003
 	idWebhook   = 1004
 	idGitHub    = 1005
+	idUpdate    = 1006
 
 	nifMessage = 0x00000001
 	nifIcon    = 0x00000002
@@ -372,35 +372,16 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 	}
 	defer procDestroyMenu.Call(menu)
 
-	appendGray(menu, statusLine(s))
-	appendGray(menu, boolLine("Microphone", s.Microphone))
-	appendGray(menu, boolLine("Webcam", s.Webcam))
-	if len(s.Sources) > 0 {
-		appendGray(menu, "Sources: "+joinSources(s.Sources))
-	} else {
-		appendGray(menu, "Sources: (none)")
-	}
-	if webhookFailed {
-		appendGray(menu, "Webhook: failed")
+	for _, line := range statusLines(s, webhookFailed) {
+		appendGray(menu, line)
 	}
 	h.mu.Lock()
 	actions := h.actions
 	h.mu.Unlock()
-	if actions.hasSetup() {
-		_, _, _ = procAppendMenuW.Call(menu, mfSeparator, 0, 0)
-		if actions.Install != nil && (actions.AutostartOn == nil || !actions.AutostartOn()) {
-			appendItem(menu, idInstall, "Install (start at logon)")
-		}
-		if actions.Uninstall != nil && (actions.AutostartOn == nil || actions.AutostartOn()) {
-			appendItem(menu, idUninstall, "Uninstall (remove logon startup)")
-		}
-		if actions.SetWebhookURL != nil {
-			appendItem(menu, idWebhook, "Set webhook URL...")
-		}
-	}
 	_, _, _ = procAppendMenuW.Call(menu, mfSeparator, 0, 0)
-	appendItem(menu, idGitHub, "GitHub...")
-	appendItem(menu, idQuit, "Quit")
+	for _, c := range actionChoices(actions) {
+		appendItem(menu, winMenuID(c.ID), c.Label)
+	}
 
 	var pt point
 	_, _, _ = procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt)))
@@ -424,28 +405,6 @@ func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
 	switch id {
 	case idQuit:
 		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
-	case idInstall:
-		if actions.Install == nil {
-			return
-		}
-		if err := actions.Install(); err != nil {
-			alert(hwnd, err.Error(), true)
-			return
-		}
-		alert(hwnd, "Installed. call-detect will start at logon.", false)
-	case idUninstall:
-		if actions.Uninstall == nil {
-			return
-		}
-		if err := actions.Uninstall(); err != nil {
-			alert(hwnd, err.Error(), true)
-			return
-		}
-		alert(hwnd, "Removed logon startup. The tray icon will keep running until you choose Quit.", false)
-	case idGitHub:
-		if err := openURL(project.RepoURL); err != nil {
-			alert(hwnd, err.Error(), true)
-		}
 	case idWebhook:
 		if actions.SetWebhookURL == nil {
 			return
@@ -467,6 +426,48 @@ func (h *hostImpl) handleCommand(id uint16, hwnd windows.HWND) {
 			return
 		}
 		alert(hwnd, "Webhook URL saved. Changes apply immediately.", false)
+	default:
+		handleMenuID(actions, menuIDFromWin(id), func() {
+			_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
+		})
+	}
+}
+
+func winMenuID(id string) uint16 {
+	switch id {
+	case menuInstall:
+		return idInstall
+	case menuUninstall:
+		return idUninstall
+	case menuWebhook:
+		return idWebhook
+	case menuUpdate:
+		return idUpdate
+	case menuGitHub:
+		return idGitHub
+	case menuQuit:
+		return idQuit
+	default:
+		return 0
+	}
+}
+
+func menuIDFromWin(id uint16) string {
+	switch id {
+	case idInstall:
+		return menuInstall
+	case idUninstall:
+		return menuUninstall
+	case idWebhook:
+		return menuWebhook
+	case idUpdate:
+		return menuUpdate
+	case idGitHub:
+		return menuGitHub
+	case idQuit:
+		return menuQuit
+	default:
+		return ""
 	}
 }
 

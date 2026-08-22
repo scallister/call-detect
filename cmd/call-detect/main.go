@@ -1,5 +1,7 @@
 package main
 
+//go:generate go run ../winres -version dev -o rsrc_windows_amd64.syso
+
 import (
 	"context"
 	"flag"
@@ -40,13 +42,19 @@ func run(args []string) int {
 	consoleFlag := fs.Bool("console", false, "show log output in a console window")
 	webhookURL := fs.String("webhook-url", "", "override webhook URL (also CALL_DETECT_WEBHOOK_URL or config.yaml)")
 	configPath := fs.String("config", "", "path to config.yaml (default: user data directory)")
+	versionFlag := fs.Bool("version", false, "print version and exit")
 	if err := fs.Parse(args); err != nil {
 		return 2
 	}
 
-	needConsole := *installFlag || *uninstallFlag || *dumpFlag || *consoleFlag
+	needConsole := *installFlag || *uninstallFlag || *dumpFlag || *consoleFlag || *versionFlag
 	if needConsole {
-		enableConsole(*consoleFlag || *installFlag || *uninstallFlag || *dumpFlag)
+		enableConsole(*consoleFlag || *installFlag || *uninstallFlag || *dumpFlag || *versionFlag)
+	}
+
+	if *versionFlag {
+		fmt.Println(version.Display(version.Version))
+		return 0
 	}
 
 	if *installFlag {
@@ -110,6 +118,7 @@ func run(args []string) int {
 	var lastSnap state.Snapshot
 	var haveSnap bool
 	host.SetActions(tray.Actions{
+		Context:     ctx,
 		AutostartOn: install.AutostartEnabled,
 		Install: func() error {
 			_, err := install.Apply()
@@ -177,10 +186,13 @@ func run(args []string) int {
 		tray.RunExitHook()
 		host.Quit()
 	}
-	watchRemoteQuit(quit)
+	if install.RunningFromInstall() {
+		watchRemoteQuit(quit)
+	}
 	notifyQuit(quit)
 	watchDone := make(chan struct{})
 	host.Run(func() {
+		go tray.OfferRemoteUpdate(ctx, false)
 		go func() {
 			defer close(watchDone)
 			if err := watch.Run(ctx, opt); err != nil {

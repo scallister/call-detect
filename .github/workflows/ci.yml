@@ -27,6 +27,8 @@ jobs:
           else
             echo "version=dev" >> "$GITHUB_OUTPUT"
           fi
+      - name: Windows resources
+        run: go run ./cmd/winres -version "${{ steps.ver.outputs.version }}" -o cmd/call-detect/rsrc_windows_amd64.syso
       - name: Build Windows amd64
         run: GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui -s -w -X github.com/scallister/call-detect/internal/version.Version=${{ steps.ver.outputs.version }}" -o call-detect.exe ./cmd/call-detect
       - name: Build Linux amd64
@@ -61,6 +63,7 @@ jobs:
       - name: Build
         run: |
           ver="${GITHUB_REF_NAME}"
+          go run ./cmd/winres -version "${ver}" -o cmd/call-detect/rsrc_windows_amd64.syso
           flags="-s -w -X github.com/scallister/call-detect/internal/version.Version=${ver}"
           GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-H windowsgui ${flags}" -o call-detect.exe ./cmd/call-detect
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="${flags}" -o call-detect-linux-amd64 ./cmd/call-detect
