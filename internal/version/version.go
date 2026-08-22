@@ -28,6 +28,11 @@ func release(v string) bool {
 	return v != "" && v != "dev"
 }
 
+// IsRelease reports whether v looks like a tagged release (not empty or "dev").
+func IsRelease(v string) bool {
+	return release(v)
+}
+
 // Compare returns 1 if a is a newer release than b, -1 if older, 0 if equal
 // or not comparable (dev / empty).
 func Compare(a, b string) int {

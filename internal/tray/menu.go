@@ -1,16 +1,22 @@
 package tray
 
 import (
+	"context"
+	"log"
 	"strings"
+	"time"
 
+	"github.com/scallister/call-detect/internal/install"
 	"github.com/scallister/call-detect/internal/project"
 	"github.com/scallister/call-detect/internal/state"
+	"github.com/scallister/call-detect/internal/version"
 )
 
 const (
 	menuInstall   = "install"
 	menuUninstall = "uninstall"
 	menuWebhook   = "webhook"
+	menuUpdate    = "update"
 	menuGitHub    = "github"
 	menuQuit      = "quit"
 )
@@ -39,6 +45,7 @@ func actionChoices(a Actions) []menuChoice {
 	if a.SetWebhookURL != nil {
 		out = append(out, menuChoice{menuWebhook, "Set webhook URL..."})
 	}
+	out = append(out, menuChoice{menuUpdate, "Check for updates..."})
 	out = append(out, menuChoice{menuGitHub, "GitHub..."})
 	out = append(out, menuChoice{menuQuit, "Quit"})
 	return out
@@ -85,6 +92,8 @@ func handleMenuID(a Actions, id string, quit func()) {
 			return
 		}
 		Alert("Webhook URL saved. Changes apply immediately.", false)
+	case menuUpdate:
+		OfferRemoteUpdate(true)
 	case menuGitHub:
 		if err := openBrowser(project.RepoURL); err != nil {
 			Alert(err.Error(), true)
@@ -125,5 +134,39 @@ func statusLines(s state.Snapshot, failed bool) []string {
 	} else {
 		lines = append(lines, "Sources: (none)")
 	}
+	lines = append(lines, "Version: "+version.Display(version.Version))
 	return lines
+}
+
+// OfferRemoteUpdate compares this build to the newest GitHub release.
+// A silent check (interactive=false) only prompts when this is a release
+// build and a newer tag exists.
+func OfferRemoteUpdate(interactive bool) {
+	if !interactive && !version.IsRelease(version.Version) {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	defer cancel()
+	latest, err := project.LatestTag(ctx)
+	if err != nil {
+		if interactive {
+			Alert(err.Error(), true)
+		} else {
+			log.Printf("update check: %v", err)
+		}
+		return
+	}
+	ok, msg := install.RemoteOffer(version.Version, latest)
+	if !ok {
+		if interactive {
+			Alert("call-detect "+version.Display(version.Version)+" is the latest release.", false)
+		}
+		return
+	}
+	if !Confirm("call-detect", msg) {
+		return
+	}
+	if err := openBrowser(project.LatestReleaseURL); err != nil {
+		Alert(err.Error(), true)
+	}
 }

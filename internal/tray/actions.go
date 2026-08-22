@@ -8,7 +8,3 @@ type Actions struct {
 	WebhookURL    func() string
 	SetWebhookURL func(string) error
 }
-
-func (a Actions) hasSetup() bool {
-	return a.Install != nil || a.Uninstall != nil || a.SetWebhookURL != nil
-}

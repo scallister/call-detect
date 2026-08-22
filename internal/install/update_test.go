@@ -78,3 +78,40 @@ func TestFilesDiffer(t *testing.T) {
 		t.Fatal("different bytes")
 	}
 }
+
+func TestRemoteOffer(t *testing.T) {
+	t.Parallel()
+	ok, msg := RemoteOffer("v0.0.7", "v0.1.0")
+	if !ok || msg == "" {
+		t.Fatalf("newer should offer: %v %q", ok, msg)
+	}
+	if ok, _ := RemoteOffer("v0.1.0", "v0.1.0"); ok {
+		t.Fatal("equal should not offer")
+	}
+	if ok, _ := RemoteOffer("v0.1.0", "v0.0.9"); ok {
+		t.Fatal("older latest should not offer")
+	}
+	ok, msg = RemoteOffer("dev", "v0.1.0")
+	if !ok || msg == "" {
+		t.Fatalf("dev should offer a real release: %v %q", ok, msg)
+	}
+}
+
+func TestSameFileAndRunningFromInstall(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a.exe")
+	b := filepath.Join(dir, "b.exe")
+	if err := os.WriteFile(a, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !SameFile(a, a) {
+		t.Fatal("same path")
+	}
+	if SameFile(a, b) {
+		t.Fatal("missing dest is not the same file")
+	}
+	if RunningFromInstall() {
+		t.Fatal("test binary is not the installed exe")
+	}
+}

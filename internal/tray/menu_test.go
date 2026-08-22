@@ -9,7 +9,7 @@ import (
 func TestActionChoices(t *testing.T) {
 	t.Parallel()
 	got := actionChoices(Actions{})
-	if len(got) != 2 || got[0].ID != menuGitHub || got[1].ID != menuQuit {
+	if len(got) != 3 || got[0].ID != menuUpdate || got[1].ID != menuGitHub || got[2].ID != menuQuit {
 		t.Fatalf("default: %+v", got)
 	}
 	got = actionChoices(Actions{
@@ -18,7 +18,7 @@ func TestActionChoices(t *testing.T) {
 		SetWebhookURL: func(string) error { return nil },
 		AutostartOn:   func() bool { return false },
 	})
-	if len(got) != 4 || got[0].ID != menuInstall || got[1].ID != menuWebhook {
+	if len(got) != 5 || got[0].ID != menuInstall || got[1].ID != menuWebhook || got[2].ID != menuUpdate {
 		t.Fatalf("not installed: %+v", got)
 	}
 	got = actionChoices(Actions{
@@ -26,7 +26,7 @@ func TestActionChoices(t *testing.T) {
 		Uninstall:   func() error { return nil },
 		AutostartOn: func() bool { return true },
 	})
-	if len(got) != 3 || got[0].ID != menuUninstall {
+	if len(got) != 4 || got[0].ID != menuUninstall || got[1].ID != menuUpdate {
 		t.Fatalf("installed: %+v", got)
 	}
 }
@@ -44,6 +44,9 @@ func TestStatusLines(t *testing.T) {
 	if lines[3] != "Sources: Firefox" {
 		t.Fatalf("sources: %q", lines[3])
 	}
+	if lines[4] != "Version: dev" {
+		t.Fatalf("version: %q", lines[4])
+	}
 }
 
 func TestHandleMenuQuit(t *testing.T) {
@@ -53,4 +56,9 @@ func TestHandleMenuQuit(t *testing.T) {
 	if !quit {
 		t.Fatal("quit")
 	}
+}
+
+func TestOfferRemoteUpdateSkipsDev(t *testing.T) {
+	// Version is "dev" in tests; a silent check must not hit the network.
+	OfferRemoteUpdate(false)
 }

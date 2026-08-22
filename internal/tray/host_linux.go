@@ -27,6 +27,7 @@ const (
 	dbusIDWebhook   int32 = 102
 	dbusIDGitHub    int32 = 103
 	dbusIDQuit      int32 = 104
+	dbusIDUpdate    int32 = 105
 )
 
 type iconPixmap struct {
@@ -438,6 +439,8 @@ func (h *hostImpl) handleDbusID(id int32) {
 		handleMenuID(actions, menuUninstall, h.quit)
 	case dbusIDWebhook:
 		handleMenuID(actions, menuWebhook, h.quit)
+	case dbusIDUpdate:
+		handleMenuID(actions, menuUpdate, h.quit)
 	case dbusIDGitHub:
 		handleMenuID(actions, menuGitHub, h.quit)
 	case dbusIDQuit:
@@ -478,6 +481,8 @@ func dbusIDFor(id string) int32 {
 		return dbusIDUninstall
 	case menuWebhook:
 		return dbusIDWebhook
+	case menuUpdate:
+		return dbusIDUpdate
 	case menuGitHub:
 		return dbusIDGitHub
 	case menuQuit:

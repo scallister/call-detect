@@ -26,6 +26,9 @@ func TestCompare(t *testing.T) {
 	if !Newer("v0.0.5", "0.0.4") {
 		t.Fatal("expected newer")
 	}
+	if !IsRelease("v0.1.0") || IsRelease("dev") || IsRelease("") {
+		t.Fatal("IsRelease")
+	}
 }
 
 func TestDisplay(t *testing.T) {

@@ -13,7 +13,9 @@ const (
 	eventModifyState = 0x0002
 )
 
-// SignalQuit asks a running tray instance to exit.
+// SignalQuit asks a running installed tray instance to exit.
+// Only the installed copy listens for this event, so Install from a
+// downloaded exe does not quit itself.
 func SignalQuit() {
 	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
 	openEvent := kernel32.NewProc("OpenEventW")
