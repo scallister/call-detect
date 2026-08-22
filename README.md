@@ -129,7 +129,13 @@ Home Assistant is one destination. The same POST can hit any webhook — n8n, a 
 
 ## Home Assistant
 
-One setup sends the webhook to Home Assistant, which toggles a Z-Wave switch and lights an edge-lit **MEETING IN PROGRESS** or **ON THE AIR** sign. A lamp or an `input_boolean` helper is the same pattern. Steps:
+One setup sends the webhook to Home Assistant, which toggles a Z-Wave switch and lights an edge-lit sign. A lamp or an `input_boolean` helper is the same pattern.
+
+| MEETING IN PROGRESS | ON THE AIR |
+|---------------------|------------|
+| ![MEETING IN PROGRESS sign](docs/screenshots/meeting_in_progress.jpg) | ![ON THE AIR sign](docs/screenshots/on_the_air.jpg) |
+
+Steps:
 
 1. **Settings → Devices & services → Helpers** — create a Toggle, for example `On a call` (`input_boolean.on_a_call`).
 2. **Settings → Automations & scenes → Create automation** — add a **Webhook** trigger.
