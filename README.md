@@ -88,11 +88,23 @@ The latest snapshot is also written to `status.json` in that directory.
 
 Same gray / green / red ring on every OS:
 
+![Idle, on a call, and webhook-failed tray icons](docs/screenshots/icons.png)
+
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
+Linux (StatusNotifier on XFCE). Windows and macOS show the same items in the notification area / menu bar:
+
+| Idle | On a call |
+|------|-----------|
+| ![Idle tray menu](docs/screenshots/linux-idle.png) | ![On a call tray menu](docs/screenshots/linux-on-a-call.png) |
+
+![Tray menu when the webhook POST failed](docs/screenshots/linux-webhook-failed.png)
+
 Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, the running **Version**, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **Check for updates...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
+
+![Set webhook URL dialog](docs/screenshots/linux-webhook.png)
 
 **Linux.** The icon is a [StatusNotifierItem](https://www.freedesktop.org/wiki/Specifications/StatusNotifierItem/). KDE Plasma and many status-notifier hosts show it natively. GNOME needs an AppIndicator / StatusNotifier extension. Dialogs use `zenity` or `kdialog` when present (install one for Install / webhook / self-update prompts). Left-click can also open a zenity list if the host does not show the D-Bus menu.
 
