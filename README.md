@@ -96,7 +96,7 @@ Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) 
 
 The icon is in the notification area. It comes back if Explorer restarts. The exe includes a version resource (File description, product name, icon) so Windows and antivirus can identify it.
 
-Same menu on [macOS](docs/macos.md) and [Linux](docs/linux.md).
+See [macOS](docs/macos.md) and [Linux](docs/linux.md) screenshots on their respective pages.
 
 ## Antivirus
 
