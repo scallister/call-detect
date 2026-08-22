@@ -94,11 +94,13 @@ Same gray / green / red ring on every OS:
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
 
-Linux (StatusNotifier on XFCE). Windows and macOS show the same items in the notification area / menu bar:
+Same menu on every OS. Linux is a live XFCE StatusNotifier capture; Windows and macOS use the same ring icons and labels.
 
-| Idle | On a call |
-|------|-----------|
-| ![Idle tray menu](docs/screenshots/linux-idle.png) | ![On a call tray menu](docs/screenshots/linux-on-a-call.png) |
+| | Idle | On a call |
+|--|------|-----------|
+| **Windows** | ![Windows idle](docs/screenshots/windows-idle.png) | ![Windows on a call](docs/screenshots/windows-on-a-call.png) |
+| **macOS** | ![macOS idle](docs/screenshots/macos-idle.png) | ![macOS on a call](docs/screenshots/macos-on-a-call.png) |
+| **Linux** | ![Linux idle](docs/screenshots/linux-idle.png) | ![Linux on a call](docs/screenshots/linux-on-a-call.png) |
 
 ![Tray menu when the webhook POST failed](docs/screenshots/linux-webhook-failed.png)
 
