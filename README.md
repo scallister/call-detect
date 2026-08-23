@@ -2,7 +2,7 @@
 
 A program to detect **microphone** or **webcam** use and send a webhook for automation.
 
-For example:
+For example I trigger these two lights depending on if I'm on a voice or voice call:
 
 | Windows taskbar | MEETING IN PROGRESS | ON THE AIR |
 |-----------------|---------------------|------------|
