@@ -16,7 +16,13 @@ func TestTooltipBusy(t *testing.T) {
 	if got := Tooltip(s); got != "call-detect: on a call (mic+camera, Discord.exe)" {
 		t.Fatalf("got %q", got)
 	}
-	if got := TooltipAlert(s, true); got != "call-detect: on a call (mic+camera, Discord.exe) — webhook failed" {
+	if got := TooltipAlert(s, true, false); got != "call-detect: on a call (mic+camera, Discord.exe) — webhook failed" {
 		t.Fatalf("failed: %q", got)
+	}
+	if got := TooltipAlert(s, false, true); got != "call-detect: on a call (mic+camera, Discord.exe) — update available" {
+		t.Fatalf("update: %q", got)
+	}
+	if got := TooltipAlert(s, true, true); got != "call-detect: on a call (mic+camera, Discord.exe) — webhook failed — update available" {
+		t.Fatalf("both: %q", got)
 	}
 }

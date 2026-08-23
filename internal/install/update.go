@@ -67,13 +67,18 @@ func Replace(dest string) error {
 	return WriteInstalledVersion(filepath.Dir(dest), version.Version)
 }
 
-// RemoteOffer reports whether latest is newer than current, and the dialog text.
-func RemoteOffer(current, latest string) (bool, string) {
+// NewerRelease returns latest when it is a newer release than current.
+func NewerRelease(current, latest string) string {
+	latest = strings.TrimSpace(latest)
 	if !version.Newer(latest, current) {
-		return false, ""
+		return ""
 	}
-	return true, fmt.Sprintf("This is call-detect %s. Version %s is available.\n\nOpen the download page?",
-		version.Display(current), version.Display(latest))
+	return latest
+}
+
+// PendingPath is the downloaded binary used to swap the installed exe.
+func PendingPath(dir string) string {
+	return appdir.ExePath(dir) + ".new"
 }
 
 // SameFile reports whether two paths point at the same file.

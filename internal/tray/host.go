@@ -35,6 +35,11 @@ func (h *Host) SetWebhookFailed(failed bool) {
 	h.impl.setWebhookFailed(failed)
 }
 
+// SetPendingUpdate shows the up-chevron and Install update item when tag is set.
+func (h *Host) SetPendingUpdate(tag string) {
+	h.impl.setPendingUpdate(tag)
+}
+
 // Run shows the icon and blocks until Quit. ready always starts, even if
 // the notification icon cannot be created, so detection and webhooks still run.
 func (h *Host) Run(ready func()) {

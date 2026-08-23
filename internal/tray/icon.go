@@ -10,31 +10,85 @@ import (
 const iconSize = 32
 
 // IdleICO is a muted gray circle for the notification area.
-func IdleICO() []byte { return circleICO(0x88, 0x88, 0x88) }
+func IdleICO() []byte { return StatusICO(false, false, false) }
 
 // BusyICO is a green circle shown while a call is detected.
-func BusyICO() []byte { return circleICO(0x2E, 0xCC, 0x40) }
+func BusyICO() []byte { return StatusICO(true, false, false) }
 
 // ErrorICO is a red circle shown when the last webhook POST failed.
-func ErrorICO() []byte { return circleICO(0xE0, 0x3C, 0x31) }
+func ErrorICO() []byte { return StatusICO(false, true, false) }
 
 // IdlePNG is the gray ring as a PNG (macOS / Linux).
-func IdlePNG() []byte { return circlePNG(0x88, 0x88, 0x88) }
+func IdlePNG() []byte { return StatusPNG(false, false, false) }
 
 // BusyPNG is the green ring as a PNG.
-func BusyPNG() []byte { return circlePNG(0x2E, 0xCC, 0x40) }
+func BusyPNG() []byte { return StatusPNG(true, false, false) }
 
 // ErrorPNG is the red ring as a PNG.
-func ErrorPNG() []byte { return circlePNG(0xE0, 0x3C, 0x31) }
+func ErrorPNG() []byte { return StatusPNG(false, true, false) }
 
 // IdleARGB is the gray ring as StatusNotifier ARGB32 pixels.
-func IdleARGB() []byte { return circleARGB(0x88, 0x88, 0x88) }
+func IdleARGB() []byte { return StatusARGB(false, false, false) }
 
 // BusyARGB is the green ring as StatusNotifier ARGB32 pixels.
-func BusyARGB() []byte { return circleARGB(0x2E, 0xCC, 0x40) }
+func BusyARGB() []byte { return StatusARGB(true, false, false) }
 
 // ErrorARGB is the red ring as StatusNotifier ARGB32 pixels.
-func ErrorARGB() []byte { return circleARGB(0xE0, 0x3C, 0x31) }
+func ErrorARGB() []byte { return StatusARGB(false, true, false) }
+
+// StatusICO is the notification-area icon for the current tray state.
+func StatusICO(busy, failed, update bool) []byte {
+	r, g, b := ringColor(busy, failed)
+	return circleICO(r, g, b, update)
+}
+
+// StatusPNG is the PNG icon for the current tray state.
+func StatusPNG(busy, failed, update bool) []byte {
+	r, g, b := ringColor(busy, failed)
+	return circlePNG(r, g, b, update)
+}
+
+// StatusARGB is the StatusNotifier pixmap for the current tray state.
+func StatusARGB(busy, failed, update bool) []byte {
+	r, g, b := ringColor(busy, failed)
+	return circleARGB(r, g, b, update)
+}
+
+func ringColor(busy, failed bool) (byte, byte, byte) {
+	switch {
+	case failed:
+		return 0xE0, 0x3C, 0x31
+	case busy:
+		return 0x2E, 0xCC, 0x40
+	default:
+		return 0x88, 0x88, 0x88
+	}
+}
+
+func withUpMark(img *image.RGBA) {
+	const cr, cg, cb byte = 0xF4, 0xF4, 0xF4
+	cx, top, h, halfW := 15.5, 11.0, 9.0, 6.5
+	for y := 0; y < iconSize; y++ {
+		for x := 0; x < iconSize; x++ {
+			relY := float64(y) - top
+			if relY < 0 || relY > h {
+				continue
+			}
+			half := (relY / h) * halfW
+			dx := float64(x) - cx
+			if dx < 0 {
+				dx = -dx
+			}
+			if dx <= half {
+				i := img.PixOffset(x, y)
+				img.Pix[i+0] = cr
+				img.Pix[i+1] = cg
+				img.Pix[i+2] = cb
+				img.Pix[i+3] = 0xFF
+			}
+		}
+	}
+}
 
 func ringRGBA(cr, cg, cb byte) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, iconSize, iconSize))
@@ -58,15 +112,22 @@ func ringRGBA(cr, cg, cb byte) *image.RGBA {
 	return img
 }
 
-func circlePNG(r, g, b byte) []byte {
+func circlePNG(r, g, b byte, update bool) []byte {
+	img := ringRGBA(r, g, b)
+	if update {
+		withUpMark(img)
+	}
 	var buf bytes.Buffer
-	_ = png.Encode(&buf, ringRGBA(r, g, b))
+	_ = png.Encode(&buf, img)
 	return buf.Bytes()
 }
 
 // circleARGB is a StatusNotifier IconPixmap payload (ARGB, network byte order).
-func circleARGB(cr, cg, cb byte) []byte {
+func circleARGB(cr, cg, cb byte, update bool) []byte {
 	img := ringRGBA(cr, cg, cb)
+	if update {
+		withUpMark(img)
+	}
 	out := make([]byte, iconSize*iconSize*4)
 	for i := 0; i < iconSize*iconSize; i++ {
 		r, g, b, a := img.Pix[i*4], img.Pix[i*4+1], img.Pix[i*4+2], img.Pix[i*4+3]
@@ -78,8 +139,11 @@ func circleARGB(cr, cg, cb byte) []byte {
 	return out
 }
 
-func circleICO(r, g, b byte) []byte {
+func circleICO(r, g, b byte, update bool) []byte {
 	img := ringRGBA(r, g, b)
+	if update {
+		withUpMark(img)
+	}
 	xor := make([]byte, iconSize*iconSize*4)
 	for y := 0; y < iconSize; y++ {
 		for x := 0; x < iconSize; x++ {

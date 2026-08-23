@@ -6,10 +6,13 @@ import "context"
 type Actions struct {
 	// Context is canceled when the process is quitting. Update checks
 	// use it so a late GitHub response cannot show a dialog after Quit.
-	Context       context.Context
-	AutostartOn   func() bool
-	Install       func() error
-	Uninstall     func() error
-	WebhookURL    func() string
-	SetWebhookURL func(string) error
+	Context        context.Context
+	AutostartOn    func() bool
+	Install        func() error
+	Uninstall      func() error
+	WebhookURL     func() string
+	SetWebhookURL  func(string) error
+	PendingUpdate  func() string
+	RememberUpdate func(available string) error
+	InstallUpdate  func() error
 }

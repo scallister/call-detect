@@ -26,6 +26,8 @@ func (h *hostImpl) update(state.Snapshot) {}
 
 func (h *hostImpl) setWebhookFailed(bool) {}
 
+func (h *hostImpl) setPendingUpdate(string) {}
+
 func (h *hostImpl) run(ready func()) {
 	startReady(ready)
 	<-h.done

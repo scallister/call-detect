@@ -8,4 +8,4 @@ The binary is not an `.app` bundle. Gatekeeper may ask you to open it from Finde
 |------|-----------|
 | ![macOS idle](screenshots/macos-idle.png) | ![macOS on a call](screenshots/macos-on-a-call.png) |
 
-Same gray / green / red ring: idle, on a call, webhook failed. See the [main README](../README.md#tray-icon).
+Same gray / green / red ring: idle, on a call, webhook failed. An up-chevron on the ring means a newer release is available; **Install update** replaces the installed file. See the [main README](../README.md#tray-icon).

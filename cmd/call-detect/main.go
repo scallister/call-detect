@@ -22,6 +22,7 @@ import (
 	"github.com/scallister/call-detect/internal/dump"
 	"github.com/scallister/call-detect/internal/install"
 	"github.com/scallister/call-detect/internal/live"
+	"github.com/scallister/call-detect/internal/project"
 	"github.com/scallister/call-detect/internal/state"
 	"github.com/scallister/call-detect/internal/tray"
 	"github.com/scallister/call-detect/internal/version"
@@ -37,6 +38,7 @@ func run(args []string) int {
 	fs := flag.NewFlagSet("call-detect", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	installFlag := fs.Bool("install", false, "copy the program to the user data directory and start it at logon")
+	applyUpdateFlag := fs.Bool("apply-update", false, "replace the installed program with this binary and restart it")
 	uninstallFlag := fs.Bool("uninstall", false, "remove the logon autostart entry")
 	dumpFlag := fs.Bool("dump", false, "print ConsentStore records, live audio and camera activity, and the confirmed result")
 	consoleFlag := fs.Bool("console", false, "show log output in a console window")
@@ -82,6 +84,9 @@ func run(args []string) int {
 	if *dumpFlag {
 		return cmdDump()
 	}
+	if *applyUpdateFlag {
+		return cmdApplyUpdate(dir)
+	}
 
 	if code, done := maybeUpdate(); done {
 		return code
@@ -109,10 +114,34 @@ func run(args []string) int {
 	if cfg.WebhookURL != "" {
 		log.Printf("webhook enabled")
 	}
+	_ = os.Remove(install.PendingPath(dir))
+	available := file.UpdateAvailable
+	if available != "" && !version.Newer(available, version.Version) {
+		available = ""
+		if err := config.WriteUpdate(cfgFile, file.UpdateLastChecked, ""); err != nil {
+			log.Print(err)
+		}
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	host := tray.New()
+	var pendingMu sync.Mutex
+	pendingTag := available
+	setPending := func(tag string) {
+		pendingMu.Lock()
+		pendingTag = strings.TrimSpace(tag)
+		pendingMu.Unlock()
+		host.SetPendingUpdate(pendingTag)
+	}
+	setPending(available)
+	rememberUpdate := func(tag string) error {
+		if err := config.WriteUpdate(cfgFile, config.FormatDate(time.Now()), tag); err != nil {
+			return err
+		}
+		setPending(tag)
+		return nil
+	}
 	hook := &webhook.Client{URL: cfg.WebhookURL}
 	var lastMu sync.Mutex
 	var lastSnap state.Snapshot
@@ -127,6 +156,21 @@ func run(args []string) int {
 		Uninstall: install.DisableAutostart,
 		WebhookURL: func() string {
 			return hook.GetURL()
+		},
+		PendingUpdate: func() string {
+			pendingMu.Lock()
+			defer pendingMu.Unlock()
+			return pendingTag
+		},
+		RememberUpdate: rememberUpdate,
+		InstallUpdate: func() error {
+			dlCtx, dlCancel := context.WithTimeout(ctx, 2*time.Minute)
+			defer dlCancel()
+			pending := install.PendingPath(dir)
+			if err := project.Download(dlCtx, pending); err != nil {
+				return err
+			}
+			return install.Start(pending, "--apply-update")
 		},
 		SetWebhookURL: func(url string) error {
 			url = strings.TrimSpace(url)
@@ -192,7 +236,12 @@ func run(args []string) int {
 	notifyQuit(quit)
 	watchDone := make(chan struct{})
 	host.Run(func() {
-		go tray.OfferRemoteUpdate(ctx, false)
+		if config.Due(file.UpdateLastChecked, time.Now()) {
+			go tray.OfferRemoteUpdate(ctx, false, tray.Actions{
+				Context:        ctx,
+				RememberUpdate: rememberUpdate,
+			})
+		}
 		go func() {
 			defer close(watchDone)
 			if err := watch.Run(ctx, opt); err != nil {
@@ -243,6 +292,23 @@ func cmdInstall() int {
 	fmt.Printf("Installed %s (%s)\n", paths.Exe, version.Version)
 	fmt.Printf("Config    %s\n", paths.Config)
 	fmt.Println("Starts automatically at logon. Edit config.yaml to set webhook_url.")
+	return 0
+}
+
+func cmdApplyUpdate(dir string) int {
+	installed := appdir.ExePath(dir)
+	log.Printf("apply update to %s", installed)
+	if err := install.Replace(installed); err != nil {
+		log.Print(err)
+		return 1
+	}
+	if err := install.EnableAutostart(installed); err != nil {
+		log.Print(err)
+	}
+	if err := install.Start(installed); err != nil {
+		log.Print(err)
+		return 1
+	}
 	return 0
 }
 

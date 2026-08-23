@@ -94,8 +94,8 @@ func WriteSampleConfig(path string) error {
 }
 
 // Start launches exe detached from the installer process.
-func Start(exe string) error {
-	cmd := exec.Command(exe)
+func Start(exe string, args ...string) error {
+	cmd := exec.Command(exe, args...)
 	cmd.Dir = filepath.Dir(exe)
 	detach(cmd)
 	return cmd.Start()

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"unsafe"
@@ -127,17 +128,21 @@ type msg struct {
 }
 
 type hostImpl struct {
-	mu             sync.Mutex
-	hwnd           windows.HWND
-	idleIcon       windows.Handle
-	busyIcon       windows.Handle
-	errorIcon      windows.Handle
-	snap           state.Snapshot
-	webhookFailed  bool
-	done           chan struct{}
-	once           sync.Once
-	actions        Actions
-	taskbarCreated uint32
+	mu              sync.Mutex
+	hwnd            windows.HWND
+	idleIcon        windows.Handle
+	busyIcon        windows.Handle
+	errorIcon       windows.Handle
+	idleUpdateIcon  windows.Handle
+	busyUpdateIcon  windows.Handle
+	errorUpdateIcon windows.Handle
+	snap            state.Snapshot
+	webhookFailed   bool
+	pendingUpdate   string
+	done            chan struct{}
+	once            sync.Once
+	actions         Actions
+	taskbarCreated  uint32
 }
 
 func newHostImpl() hostImpl {
@@ -161,6 +166,14 @@ func (h *hostImpl) update(s state.Snapshot) {
 func (h *hostImpl) setWebhookFailed(failed bool) {
 	h.mu.Lock()
 	h.webhookFailed = failed
+	hwnd := h.hwnd
+	h.mu.Unlock()
+	h.postUpdate(hwnd)
+}
+
+func (h *hostImpl) setPendingUpdate(tag string) {
+	h.mu.Lock()
+	h.pendingUpdate = strings.TrimSpace(tag)
 	hwnd := h.hwnd
 	h.mu.Unlock()
 	h.postUpdate(hwnd)
@@ -197,24 +210,51 @@ func (h *hostImpl) run(ready func()) {
 }
 
 func (h *hostImpl) setupTray() error {
-	idle, err := iconFromICO(IdleICO())
+	idle, err := iconFromICO(StatusICO(false, false, false))
 	if err != nil {
 		return fmt.Errorf("idle icon: %w", err)
 	}
-	busy, err := iconFromICO(BusyICO())
+	busy, err := iconFromICO(StatusICO(true, false, false))
 	if err != nil {
 		destroyIcon(idle)
 		return fmt.Errorf("busy icon: %w", err)
 	}
-	fail, err := iconFromICO(ErrorICO())
+	fail, err := iconFromICO(StatusICO(false, true, false))
 	if err != nil {
 		destroyIcon(idle)
 		destroyIcon(busy)
 		return fmt.Errorf("error icon: %w", err)
 	}
+	idleUp, err := iconFromICO(StatusICO(false, false, true))
+	if err != nil {
+		destroyIcon(idle)
+		destroyIcon(busy)
+		destroyIcon(fail)
+		return fmt.Errorf("idle update icon: %w", err)
+	}
+	busyUp, err := iconFromICO(StatusICO(true, false, true))
+	if err != nil {
+		destroyIcon(idle)
+		destroyIcon(busy)
+		destroyIcon(fail)
+		destroyIcon(idleUp)
+		return fmt.Errorf("busy update icon: %w", err)
+	}
+	failUp, err := iconFromICO(StatusICO(false, true, true))
+	if err != nil {
+		destroyIcon(idle)
+		destroyIcon(busy)
+		destroyIcon(fail)
+		destroyIcon(idleUp)
+		destroyIcon(busyUp)
+		return fmt.Errorf("error update icon: %w", err)
+	}
 	h.idleIcon = idle
 	h.busyIcon = busy
 	h.errorIcon = fail
+	h.idleUpdateIcon = idleUp
+	h.busyUpdateIcon = busyUp
+	h.errorUpdateIcon = failUp
 	h.taskbarCreated = registerWindowMessage("TaskbarCreated")
 
 	instance, _, _ := procGetModuleHandleW.Call(0)
@@ -258,18 +298,21 @@ func (h *hostImpl) teardownTray() {
 	_ = h.notify(nimDelete)
 	h.mu.Lock()
 	hwnd := h.hwnd
-	idle, busy, fail := h.idleIcon, h.busyIcon, h.errorIcon
+	icons := []windows.Handle{h.idleIcon, h.busyIcon, h.errorIcon, h.idleUpdateIcon, h.busyUpdateIcon, h.errorUpdateIcon}
 	h.hwnd = 0
 	h.idleIcon = 0
 	h.busyIcon = 0
 	h.errorIcon = 0
+	h.idleUpdateIcon = 0
+	h.busyUpdateIcon = 0
+	h.errorUpdateIcon = 0
 	h.mu.Unlock()
 	if hwnd != 0 {
 		_, _, _ = procDestroyWindow.Call(uintptr(hwnd))
 	}
-	destroyIcon(idle)
-	destroyIcon(busy)
-	destroyIcon(fail)
+	for _, ic := range icons {
+		destroyIcon(ic)
+	}
 }
 
 func (h *hostImpl) messageLoop() {
@@ -330,15 +373,22 @@ func (h *hostImpl) notify(action uint32) error {
 	nid.ID = 1
 	nid.Flags = nifMessage | nifIcon | nifTip
 	nid.CallbackMessage = wmTray
+	update := h.pendingUpdate != ""
 	switch {
+	case h.webhookFailed && update:
+		nid.Icon = h.errorUpdateIcon
 	case h.webhookFailed:
 		nid.Icon = h.errorIcon
+	case h.snap.Busy && update:
+		nid.Icon = h.busyUpdateIcon
 	case h.snap.Busy:
 		nid.Icon = h.busyIcon
+	case update:
+		nid.Icon = h.idleUpdateIcon
 	default:
 		nid.Icon = h.idleIcon
 	}
-	setTip(&nid, TooltipAlert(h.snap, h.webhookFailed))
+	setTip(&nid, TooltipAlert(h.snap, h.webhookFailed, update))
 	r, _, err := procShellNotifyIconW.Call(uintptr(action), uintptr(unsafe.Pointer(&nid)))
 	if r == 0 {
 		return err
@@ -363,6 +413,7 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 	h.mu.Lock()
 	s := h.snap
 	webhookFailed := h.webhookFailed
+	pending := h.pendingUpdate
 	h.mu.Unlock()
 
 	menu, _, err := procCreatePopupMenu.Call()
@@ -372,7 +423,7 @@ func (h *hostImpl) showMenu(hwnd windows.HWND) {
 	}
 	defer procDestroyMenu.Call(menu)
 
-	for _, line := range statusLines(s, webhookFailed) {
+	for _, line := range statusLines(s, webhookFailed, pending) {
 		appendGray(menu, line)
 	}
 	h.mu.Lock()

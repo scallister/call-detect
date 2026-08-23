@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestResolvePrecedence(t *testing.T) {
@@ -72,5 +73,63 @@ func TestWriteWebhook(t *testing.T) {
 	got, err = LoadFile(path)
 	if err != nil || got.WebhookURL != "" {
 		t.Fatalf("clear: %+v %v", got, err)
+	}
+}
+
+func TestWriteUpdatePreservesWebhook(t *testing.T) {
+	t.Parallel()
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := WriteWebhook(path, "http://ha.example/hook"); err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteUpdate(path, "2026-08-23", "v0.1.0"); err != nil {
+		t.Fatal(err)
+	}
+	got, err := LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WebhookURL != "http://ha.example/hook" || got.UpdateLastChecked != "2026-08-23" || got.UpdateAvailable != "v0.1.0" {
+		t.Fatalf("update write: %+v", got)
+	}
+	if err := WriteWebhook(path, "http://ha.example/other"); err != nil {
+		t.Fatal(err)
+	}
+	got, err = LoadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.WebhookURL != "http://ha.example/other" || got.UpdateLastChecked != "2026-08-23" || got.UpdateAvailable != "v0.1.0" {
+		t.Fatalf("webhook write kept update: %+v", got)
+	}
+	if err := WriteUpdate(path, "2026-09-01", ""); err != nil {
+		t.Fatal(err)
+	}
+	got, err = LoadFile(path)
+	if err != nil || got.WebhookURL != "http://ha.example/other" || got.UpdateLastChecked != "2026-09-01" || got.UpdateAvailable != "" {
+		t.Fatalf("clear available: %+v %v", got, err)
+	}
+}
+
+func TestDue(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 8, 23, 15, 0, 0, 0, time.UTC)
+	if !Due("", now) {
+		t.Fatal("empty is due")
+	}
+	if !Due("not-a-date", now) {
+		t.Fatal("bad date is due")
+	}
+	if Due("2026-08-23", now) {
+		t.Fatal("same day is not due")
+	}
+	if Due("2026-07-25", now) {
+		t.Fatal("29 days is not due")
+	}
+	if !Due("2026-07-24", now) {
+		t.Fatal("30 days is due")
+	}
+	if FormatDate(now) != "2026-08-23" {
+		t.Fatalf("format %s", FormatDate(now))
 	}
 }
