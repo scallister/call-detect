@@ -2,13 +2,11 @@
 
 A program to detect **microphone** or **webcam** use and send a webhook for automation.
 
-For example, these two signs:
+For example:
 
-![call-detect on a call in the Windows taskbar](docs/screenshots/windows-on-a-call.png)
-
-| MEETING IN PROGRESS | ON THE AIR |
-|---------------------|------------|
-| ![MEETING IN PROGRESS sign](docs/screenshots/meeting_in_progress.jpg) | ![ON THE AIR sign](docs/screenshots/on_the_air.jpg) |
+| Windows taskbar | MEETING IN PROGRESS | ON THE AIR |
+|-----------------|---------------------|------------|
+| ![call-detect on a call in the Windows taskbar](docs/screenshots/windows-on-a-call.png) | ![MEETING IN PROGRESS sign](docs/screenshots/meeting_in_progress.jpg) | ![ON THE AIR sign](docs/screenshots/on_the_air.jpg) |
 
 It runs in the background on **Windows**, **macOS**, and **Linux** and POSTs JSON when the state changes. Drive a light, a Home Assistant helper, a Z-Wave switch, or anything else that accepts a webhook. All three OSes show a tray / menu-bar icon with the same actions.
 
