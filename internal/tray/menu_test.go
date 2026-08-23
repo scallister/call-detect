@@ -32,15 +32,19 @@ func TestActionChoices(t *testing.T) {
 		Uninstall:   func() error { return nil },
 		AutostartOn: func() bool { return true },
 	})
-	if len(got) != 4 || got[0].ID != menuUninstall || got[1].ID != menuUpdate {
+	if len(got) != 4 || got[0].ID != menuUninstall || got[1].ID != menuUpdate || got[1].Label != "Check for updates..." {
 		t.Fatalf("installed: %+v", got)
+	}
+	got = actionChoices(Actions{PendingUpdate: func() string { return "v0.1.0" }})
+	if got[0].ID != menuUpdate || got[0].Label != "Install update" {
+		t.Fatalf("pending: %+v", got)
 	}
 }
 
 func TestStatusLines(t *testing.T) {
 	t.Parallel()
 	s := state.Snapshot{Busy: true, Microphone: true, Sources: []string{"Firefox"}}
-	lines := statusLines(s, true)
+	lines := statusLines(s, true, "")
 	if lines[0] != "On a call — webhook failed" {
 		t.Fatalf("status: %q", lines[0])
 	}
@@ -52,6 +56,10 @@ func TestStatusLines(t *testing.T) {
 	}
 	if lines[4] != "Version: dev" {
 		t.Fatalf("version: %q", lines[4])
+	}
+	lines = statusLines(s, false, "v0.1.0")
+	if lines[5] != "Update available: v0.1.0" {
+		t.Fatalf("pending: %q", lines[5])
 	}
 }
 
@@ -82,7 +90,7 @@ func TestOfferRemoteUpdateTimeoutAlerts(t *testing.T) {
 
 	done := make(chan struct{})
 	go func() {
-		OfferRemoteUpdate(context.Background(), true)
+		OfferRemoteUpdate(context.Background(), true, Actions{})
 		close(done)
 	}()
 	select {
@@ -94,7 +102,7 @@ func TestOfferRemoteUpdateTimeoutAlerts(t *testing.T) {
 
 func TestOfferRemoteUpdateSkipsDev(t *testing.T) {
 	// Version is "dev" in tests; a silent check must not hit the network.
-	OfferRemoteUpdate(context.Background(), false)
+	OfferRemoteUpdate(context.Background(), false, Actions{})
 }
 
 func TestOfferRemoteUpdateHonorsCancel(t *testing.T) {
@@ -115,7 +123,7 @@ func TestOfferRemoteUpdateHonorsCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		OfferRemoteUpdate(ctx, false)
+		OfferRemoteUpdate(ctx, false, Actions{})
 		close(done)
 	}()
 	select {
@@ -128,6 +136,45 @@ func TestOfferRemoteUpdateHonorsCancel(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("did not return after cancel")
+	}
+}
+
+func TestOfferRemoteUpdateRemembersNewer(t *testing.T) {
+	prevVer := version.Version
+	version.Version = "v0.0.7"
+	t.Cleanup(func() { version.Version = prevVer })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v0.1.0"}`))
+	}))
+	t.Cleanup(srv.Close)
+	prevAPI := project.LatestAPI
+	project.LatestAPI = srv.URL
+	t.Cleanup(func() { project.LatestAPI = prevAPI })
+
+	var remembered string
+	OfferRemoteUpdate(context.Background(), false, Actions{
+		RememberUpdate: func(tag string) error {
+			remembered = tag
+			return nil
+		},
+	})
+	if remembered != "v0.1.0" {
+		t.Fatalf("remembered %q", remembered)
+	}
+}
+
+func TestHandleMenuInstallUpdate(t *testing.T) {
+	var called bool
+	handleMenuID(Actions{
+		PendingUpdate: func() string { return "v0.1.0" },
+		InstallUpdate: func() error {
+			called = true
+			return nil
+		},
+	}, menuUpdate, nil)
+	if !called {
+		t.Fatal("install update was not called")
 	}
 }
 

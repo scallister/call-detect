@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
@@ -76,6 +77,7 @@ type hostImpl struct {
 	mu            sync.Mutex
 	snap          state.Snapshot
 	webhookFailed bool
+	pendingUpdate string
 	actions       Actions
 	app           objc.ID
 	item          objc.ID
@@ -108,6 +110,13 @@ func (h *hostImpl) update(s state.Snapshot) {
 func (h *hostImpl) setWebhookFailed(failed bool) {
 	h.mu.Lock()
 	h.webhookFailed = failed
+	h.mu.Unlock()
+	h.pokeUI()
+}
+
+func (h *hostImpl) setPendingUpdate(tag string) {
+	h.mu.Lock()
+	h.pendingUpdate = strings.TrimSpace(tag)
 	h.mu.Unlock()
 	h.pokeUI()
 }
@@ -225,27 +234,24 @@ func (h *hostImpl) applyUI() {
 	target := h.target
 	snap := h.snap
 	failed := h.webhookFailed
+	pending := h.pendingUpdate
 	actions := h.actions
 	h.mu.Unlock()
 
-	png := IdlePNG()
-	if failed {
-		png = ErrorPNG()
-	} else if snap.Busy {
-		png = BusyPNG()
-	}
+	update := pending != ""
+	png := StatusPNG(snap.Busy, failed, update)
 	img := imageFromPNG(png)
 	button := item.Send(selButton)
 	if button != 0 {
 		button.Send(selSetImage, img)
-		button.Send(selSetToolTip, nsString(TooltipAlert(snap, failed)))
+		button.Send(selSetToolTip, nsString(TooltipAlert(snap, failed, update)))
 	}
 
 	if menu == 0 {
 		return
 	}
 	menu.Send(selRemoveAllItems)
-	for _, line := range statusLines(snap, failed) {
+	for _, line := range statusLines(snap, failed, pending) {
 		menu.Send(selAddItem, disabledItem(line))
 	}
 	menu.Send(selAddItem, objc.ID(objc.GetClass("NSMenuItem")).Send(selSeparatorItem))

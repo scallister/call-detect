@@ -53,6 +53,7 @@ type hostImpl struct {
 	mu            sync.Mutex
 	snap          state.Snapshot
 	webhookFailed bool
+	pendingUpdate string
 	actions       Actions
 	conn          *dbus.Conn
 	props         *prop.Properties
@@ -82,6 +83,13 @@ func (h *hostImpl) update(s state.Snapshot) {
 func (h *hostImpl) setWebhookFailed(failed bool) {
 	h.mu.Lock()
 	h.webhookFailed = failed
+	h.mu.Unlock()
+	h.pushIcon()
+}
+
+func (h *hostImpl) setPendingUpdate(tag string) {
+	h.mu.Lock()
+	h.pendingUpdate = strings.TrimSpace(tag)
 	h.mu.Unlock()
 	h.pushIcon()
 }
@@ -214,8 +222,8 @@ func (h *hostImpl) teardown() {
 
 func (h *hostImpl) itemProps() map[string]map[string]*prop.Prop {
 	h.mu.Lock()
-	pix := currentPixmap(h.webhookFailed, h.snap.Busy)
-	tip := TooltipAlert(h.snap, h.webhookFailed)
+	pix := currentPixmap(h.webhookFailed, h.snap.Busy, h.pendingUpdate != "")
+	tip := TooltipAlert(h.snap, h.webhookFailed, h.pendingUpdate != "")
 	h.mu.Unlock()
 	return map[string]map[string]*prop.Prop{
 		sniIface: {
@@ -244,25 +252,16 @@ func (h *hostImpl) menuPropSpec() map[string]map[string]*prop.Prop {
 	}
 }
 
-func currentPixmap(failed, busy bool) iconPixmap {
-	var data []byte
-	switch {
-	case failed:
-		data = ErrorARGB()
-	case busy:
-		data = BusyARGB()
-	default:
-		data = IdleARGB()
-	}
-	return iconPixmap{Width: iconSize, Height: iconSize, Data: data}
+func currentPixmap(failed, busy, update bool) iconPixmap {
+	return iconPixmap{Width: iconSize, Height: iconSize, Data: StatusARGB(busy, failed, update)}
 }
 
 func (h *hostImpl) pushIcon() {
 	h.mu.Lock()
 	props := h.props
 	conn := h.conn
-	pix := currentPixmap(h.webhookFailed, h.snap.Busy)
-	tip := TooltipAlert(h.snap, h.webhookFailed)
+	pix := currentPixmap(h.webhookFailed, h.snap.Busy, h.pendingUpdate != "")
+	tip := TooltipAlert(h.snap, h.webhookFailed, h.pendingUpdate != "")
 	h.menuRev++
 	rev := h.menuRev
 	menuProps := h.menuProps
@@ -349,9 +348,10 @@ func (h *hostImpl) dialogMenu() {
 	h.mu.Lock()
 	snap := h.snap
 	failed := h.webhookFailed
+	pending := h.pendingUpdate
 	actions := h.actions
 	h.mu.Unlock()
-	id, ok := pickMenu(statusLines(snap, failed), actionChoices(actions))
+	id, ok := pickMenu(statusLines(snap, failed, pending), actionChoices(actions))
 	if ok {
 		handleMenuID(actions, id, h.quit)
 	}
@@ -457,7 +457,7 @@ func (h *hostImpl) buildMenuCopy() menuNode {
 func (h *hostImpl) buildMenuLocked() menuNode {
 	var children []dbus.Variant
 	id := int32(1)
-	for _, line := range statusLines(h.snap, h.webhookFailed) {
+	for _, line := range statusLines(h.snap, h.webhookFailed, h.pendingUpdate) {
 		children = append(children, dbus.MakeVariant(disabledNode(id, line)))
 		id++
 	}

@@ -58,6 +58,34 @@ func TestCircleARGB(t *testing.T) {
 	}
 }
 
+func TestStatusUpdateMark(t *testing.T) {
+	t.Parallel()
+	plain := StatusARGB(false, false, false)
+	marked := StatusARGB(false, false, true)
+	if len(plain) != len(marked) {
+		t.Fatalf("size %d %d", len(plain), len(marked))
+	}
+	same := true
+	found := false
+	for i := 0; i < iconSize*iconSize; i++ {
+		if marked[i*4] == 0xFF && marked[i*4+1] == 0xF4 && marked[i*4+2] == 0xF4 && marked[i*4+3] == 0xF4 {
+			found = true
+		}
+		if plain[i*4] != marked[i*4] || plain[i*4+1] != marked[i*4+1] {
+			same = false
+		}
+	}
+	if same {
+		t.Fatal("update mark did not change the icon")
+	}
+	if !found {
+		t.Fatal("expected a light up-mark pixel")
+	}
+	if len(StatusICO(false, false, true)) != len(IdleICO()) {
+		t.Fatal("update ico size")
+	}
+}
+
 func TestTooltip(t *testing.T) {
 	t.Parallel()
 	if got := Tooltip(SnapshotIdle()); got != "call-detect: idle" {

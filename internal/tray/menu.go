@@ -34,6 +34,13 @@ func statusText(s state.Snapshot, failed bool) string {
 	return line
 }
 
+func pendingUpdate(a Actions) string {
+	if a.PendingUpdate == nil {
+		return ""
+	}
+	return strings.TrimSpace(a.PendingUpdate())
+}
+
 func actionChoices(a Actions) []menuChoice {
 	var out []menuChoice
 	if a.Install != nil && (a.AutostartOn == nil || !a.AutostartOn()) {
@@ -45,7 +52,11 @@ func actionChoices(a Actions) []menuChoice {
 	if a.SetWebhookURL != nil {
 		out = append(out, menuChoice{menuWebhook, "Set webhook URL..."})
 	}
-	out = append(out, menuChoice{menuUpdate, "Check for updates..."})
+	label := "Check for updates..."
+	if pendingUpdate(a) != "" {
+		label = "Install update"
+	}
+	out = append(out, menuChoice{menuUpdate, label})
 	out = append(out, menuChoice{menuGitHub, "GitHub..."})
 	out = append(out, menuChoice{menuQuit, "Quit"})
 	return out
@@ -93,7 +104,13 @@ func handleMenuID(a Actions, id string, quit func()) {
 		}
 		Alert("Webhook URL saved. Changes apply immediately.", false)
 	case menuUpdate:
-		OfferRemoteUpdate(a.updateContext(), true)
+		if pendingUpdate(a) != "" && a.InstallUpdate != nil {
+			if err := a.InstallUpdate(); err != nil {
+				Alert(err.Error(), true)
+			}
+			return
+		}
+		OfferRemoteUpdate(a.updateContext(), true, a)
 	case menuGitHub:
 		if err := openBrowser(project.RepoURL); err != nil {
 			Alert(err.Error(), true)
@@ -130,7 +147,7 @@ func joinSources(src []string) string {
 	return strings.Join(src, ", ")
 }
 
-func statusLines(s state.Snapshot, failed bool) []string {
+func statusLines(s state.Snapshot, failed bool, pending string) []string {
 	lines := []string{
 		statusText(s, failed),
 		boolLine("Microphone", s.Microphone),
@@ -142,16 +159,19 @@ func statusLines(s state.Snapshot, failed bool) []string {
 		lines = append(lines, "Sources: (none)")
 	}
 	lines = append(lines, "Version: "+version.Display(version.Version))
+	if pending != "" {
+		lines = append(lines, "Update available: "+version.Display(pending))
+	}
 	return lines
 }
 
 var updateCheckTimeout = 8 * time.Second
 
 // OfferRemoteUpdate compares this build to the newest GitHub release.
-// A silent check (interactive=false) only prompts when this is a release
-// build and a newer tag exists. Dialogs are skipped if ctx is canceled
-// (Quit), so a late GitHub response cannot outlive the tray.
-func OfferRemoteUpdate(ctx context.Context, interactive bool) {
+// A silent check (interactive=false) only runs for a release build.
+// When a newer tag exists it is remembered for the tray; no dialog is shown.
+// Dialogs are skipped if ctx is canceled (Quit).
+func OfferRemoteUpdate(ctx context.Context, interactive bool, a Actions) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -176,17 +196,21 @@ func OfferRemoteUpdate(ctx context.Context, interactive bool) {
 	if parent.Err() != nil {
 		return
 	}
-	ok, msg := install.RemoteOffer(version.Version, latest)
-	if !ok {
-		if interactive {
-			Alert("call-detect "+version.Display(version.Version)+" is the latest release.", false)
+	pending := install.NewerRelease(version.Version, latest)
+	if a.RememberUpdate != nil {
+		if err := a.RememberUpdate(pending); err != nil {
+			if parent.Err() != nil {
+				return
+			}
+			if interactive {
+				Alert(err.Error(), true)
+			} else {
+				log.Printf("update check: %v", err)
+			}
+			return
 		}
-		return
 	}
-	if !Confirm("call-detect", msg) {
-		return
-	}
-	if err := openBrowser(project.LatestReleaseURL); err != nil {
-		Alert(err.Error(), true)
+	if pending == "" && interactive {
+		Alert("call-detect "+version.Display(version.Version)+" is the latest release.", false)
 	}
 }

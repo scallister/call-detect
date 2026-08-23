@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/scallister/call-detect/internal/appdir"
 )
 
 func TestOfferReason(t *testing.T) {
@@ -79,21 +81,27 @@ func TestFilesDiffer(t *testing.T) {
 	}
 }
 
-func TestRemoteOffer(t *testing.T) {
+func TestNewerRelease(t *testing.T) {
 	t.Parallel()
-	ok, msg := RemoteOffer("v0.0.7", "v0.1.0")
-	if !ok || msg == "" {
-		t.Fatalf("newer should offer: %v %q", ok, msg)
+	if got := NewerRelease("v0.0.7", "v0.1.0"); got != "v0.1.0" {
+		t.Fatalf("newer: %q", got)
 	}
-	if ok, _ := RemoteOffer("v0.1.0", "v0.1.0"); ok {
-		t.Fatal("equal should not offer")
+	if got := NewerRelease("v0.1.0", "v0.1.0"); got != "" {
+		t.Fatalf("equal: %q", got)
 	}
-	if ok, _ := RemoteOffer("v0.1.0", "v0.0.9"); ok {
-		t.Fatal("older latest should not offer")
+	if got := NewerRelease("v0.1.0", "v0.0.9"); got != "" {
+		t.Fatalf("older: %q", got)
 	}
-	ok, msg = RemoteOffer("dev", "v0.1.0")
-	if !ok || msg == "" {
-		t.Fatalf("dev should offer a real release: %v %q", ok, msg)
+	if got := NewerRelease("dev", "v0.1.0"); got != "v0.1.0" {
+		t.Fatalf("dev: %q", got)
+	}
+}
+
+func TestPendingPath(t *testing.T) {
+	t.Parallel()
+	dir := filepath.Join("tmp", "call-detect")
+	if got := PendingPath(dir); got != appdir.ExePath(dir)+".new" {
+		t.Fatalf("pending: %s", got)
 	}
 }
 

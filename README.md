@@ -46,13 +46,16 @@ Make the file executable on macOS/Linux (`chmod +x …`), then run it. When it i
 
 No administrator rights on any OS.
 
-If call-detect is already installed, running a newer downloaded binary asks whether to replace the installed copy (Yes/No dialog). `--install` replaces without asking. A release build also checks GitHub for a newer tag at launch and from **Check for updates...** in the tray menu; that prompt opens the latest-release page rather than replacing the file itself.
+If call-detect is already installed, running a newer downloaded binary asks whether to replace the installed copy (Yes/No dialog). `--install` replaces without asking.
+
+A release build checks GitHub for a newer tag at most once a month (and whenever you choose **Check for updates...**). There is no update popup. If a newer release exists, the tray icon shows an up-chevron and the menu reads **Install update**, which downloads the matching binary and swaps the installed file.
 
 ### Flags
 
 | Flag | Purpose |
 |------|---------|
 | `--install` | Install and start at logon |
+| `--apply-update` | Replace the installed file with this binary and restart (used by **Install update**) |
 | `--uninstall` | Remove logon autostart |
 | `--dump` | Print ConsentStore records, live audio sessions, streaming cameras, and the confirmed result |
 | `--console` | Also write logs to a console window |
@@ -78,9 +81,11 @@ Webhook URL, first match wins:
 
 ```yaml
 # webhook_url: "http://homeassistant.local:8123/api/webhook/YOUR_WEBHOOK_ID"
+# update_last_checked: "2026-08-23"
+# update_available: "v0.1.0"
 ```
 
-Leave it unset to run locally (tray + `status.json` only).
+Leave `webhook_url` unset to run locally (tray + `status.json` only). `update_last_checked` and `update_available` are written by the monthly GitHub check; you do not need to set them.
 
 The latest snapshot is also written to `status.json` in that directory.
 
@@ -93,6 +98,7 @@ Same gray / green / red ring on every OS:
 - **Idle:** gray ring, tooltip `call-detect: idle`
 - **On a call:** green ring, tooltip such as `call-detect: on a call (mic, Discord.exe)`
 - **Webhook failed:** red ring (stays red until a POST succeeds), tooltip ends with `webhook failed`
+- **Update available:** the same ring with a small up-chevron; tooltip ends with `update available`. The menu shows **Update available: vX.Y.Z** and **Install update** instead of **Check for updates...**.
 
 Windows notification area:
 
@@ -100,7 +106,7 @@ Windows notification area:
 |------|-----------|
 | ![Windows idle](docs/screenshots/windows-idle.png) | ![Windows on a call](docs/screenshots/windows-on-a-call.png) |
 
-Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, the running **Version**, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **Check for updates...**, **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
+Open the menu (right-click on Windows/Linux, click the menu-bar extra on macOS) for microphone / webcam / sources, the running **Version**, **Install (start at logon)** / **Uninstall (remove logon startup)**, **Set webhook URL...**, **Check for updates...** (or **Install update** when a newer release is known), **GitHub...** (opens the [project](https://github.com/scallister/call-detect)), and **Quit**. The webhook dialog shows an example JSON payload, writes `config.yaml`, and applies immediately. If the desktop tray cannot be created, detection and `status.json` still run until you stop the process.
 
 The icon is in the notification area. It comes back if Explorer restarts. The exe includes a version resource (File description, product name, icon) so Windows and antivirus can identify it.
 

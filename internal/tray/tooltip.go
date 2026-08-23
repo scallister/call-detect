@@ -8,14 +8,17 @@ import (
 
 // Tooltip is the notification-area hover text.
 func Tooltip(s state.Snapshot) string {
-	return TooltipAlert(s, false)
+	return TooltipAlert(s, false, false)
 }
 
-// TooltipAlert is the hover text, with a webhook-failure suffix when failed.
-func TooltipAlert(s state.Snapshot, webhookFailed bool) string {
+// TooltipAlert is the hover text, with webhook-failure and update suffixes.
+func TooltipAlert(s state.Snapshot, webhookFailed, update bool) string {
 	base := tooltipBase(s)
 	if webhookFailed {
-		return base + " — webhook failed"
+		base += " — webhook failed"
+	}
+	if update {
+		base += " — update available"
 	}
 	return base
 }
