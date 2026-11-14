@@ -79,7 +79,7 @@ func listSessions() detect.Audio {
 	if err != nil {
 		return detect.Audio{Err: err}
 	}
-	return detect.Audio{Capture: capture, Render: render}
+	return detect.Audio{Capture: capture, Render: render, Authoritative: true}
 }
 
 func appsOnFlow(enum *comObj, flow uint32) ([]string, error) {
@@ -181,11 +181,10 @@ func activeSessionExe(ctl *comObj) (string, bool) {
 	if hr := call(ctl2, 14, uintptr(unsafe.Pointer(&pid))); !succeeded(hr) || pid == 0 {
 		return "", false
 	}
+	// OpenProcess / QueryFullProcessImageName can fail for a live session.
+	// Still count it; sessionProcessName labels that source "unknown".
 	name, err := processBase(pid)
-	if err != nil || name == "" {
-		return "", false
-	}
-	return name, true
+	return sessionProcessName(name, err), true
 }
 
 func processBase(pid uint32) (string, error) {

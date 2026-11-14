@@ -8,5 +8,9 @@ import (
 )
 
 func listAudio() detect.Audio {
-	return wasapi.Source{}.Sessions()
+	audio := wasapi.Source{}.Sessions()
+	if audio.Err == nil {
+		audio.Authoritative = true
+	}
+	return audio
 }

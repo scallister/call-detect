@@ -17,8 +17,9 @@ type Audio struct {
 	Render  []string
 	Err     error
 	// Authoritative means Capture is ground truth and is not intersected
-	// with ConsentStore (macOS and Linux). Windows leaves this false so
-	// stale ConsentStore rows still need a live capture session.
+	// with ConsentStore. macOS, Linux, and Windows set this when live
+	// capture enumeration succeeded. A ConsentStore row with no capture
+	// session stays idle.
 	Authoritative bool
 }
 
