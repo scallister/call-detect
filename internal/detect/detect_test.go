@@ -101,6 +101,14 @@ func TestConfirmAuthoritativeCaptureWithoutConsent(t *testing.T) {
 	if idle.Busy || idle.Microphone {
 		t.Fatalf("authoritative empty capture ignores consent: %+v", idle)
 	}
+
+	unknown := Confirm(nil, nil, Audio{Capture: []string{"unknown"}, Authoritative: true}, Camera{}, now)
+	if !unknown.Busy || !unknown.Microphone || unknown.Webcam {
+		t.Fatalf("unnamed active capture should be on: %+v", unknown)
+	}
+	if !slices.Equal(unknown.Sources, []string{"unknown"}) {
+		t.Fatalf("sources %v", unknown.Sources)
+	}
 }
 
 func TestNormApp(t *testing.T) {

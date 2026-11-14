@@ -206,7 +206,7 @@ go test ./...
 
 Playback-only audio (music, videos) does not count on any OS. The program must run as the signed-in user.
 
-**Windows.** Microphone is ConsentStore **and** a live WASAPI capture session (ConsentStore alone stays dirty after many apps leave a call). Webcam is the camera sensor activity monitor. If that monitor cannot start, webcam falls back to ConsentStore plus a capture or render session.
+**Windows.** Windows microphone state follows the live capture session, not only the privacy indicator. Webcam is the camera sensor activity monitor. If that monitor cannot start, webcam falls back to ConsentStore plus a capture or render session.
 
 **macOS.** Microphone is Core Audio devices with input that report “running somewhere.” Webcam is CoreMediaIO devices that report “running somewhere.” `sources` is often the device name rather than the app.
 
